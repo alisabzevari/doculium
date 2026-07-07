@@ -127,7 +127,7 @@ export class DocumentDetail extends LitElement {
          <div><span class="opacity-50">Category:</span> <strong>${d.category}</strong></div>
          <div><span class="opacity-50">Year:</span> <strong>${d.year}</strong></div>
          ${d.month ? html`<div><span class="opacity-50">Month:</span> <strong>${d.month}</strong></div>` : ''}
-         ${d.storedPath ? html`<div><span class="opacity-50">Location:</span> <strong>${d.storedPath}</strong></div>` : ''}
+         ${d.storedPath ? html`<div class="min-w-0"><span class="opacity-50">Location:</span> <strong class="truncate" title="${d.storedPath}">${d.storedPath}</strong></div>` : ''}
         </div>
 
         ${d.status === 'error' ? html`
