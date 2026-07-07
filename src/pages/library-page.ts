@@ -1,7 +1,8 @@
 import { LitElement, html } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
-import { getAllDocuments, searchDocuments, getDocumentsByCategory, getDocumentsByYear } from '../db/document-store.ts';
+import { customElement, state, query } from 'lit/decorators.js';
+import { getAllDocuments, searchDocuments, getDocumentsByCategory, getDocumentsByYear, deleteAllDocuments } from '../db/document-store.ts';
 import type { Document } from '../db/schema.ts';
+import type { ConfirmDialog } from '../components/confirm-dialog.ts';
 
 @customElement('library-page')
 export class LibraryPage extends LitElement {
@@ -13,14 +14,26 @@ export class LibraryPage extends LitElement {
   @state() private selectedYear = 0;
   @state() private years: number[] = [];
   @state() private categories: string[] = [];
+  @query('confirm-dialog') confirmDialog!: ConfirmDialog;
 
   async connectedCallback() {
     super.connectedCallback();
+    await this._load();
+  }
+
+  private async _load() {
     const docs = await getAllDocuments();
     this.documents = docs;
     this.filtered = docs;
     this.years = [...new Set(docs.map(d => d.year))].sort((a, b) => b - a);
     this.categories = [...new Set(docs.map(d => d.category).filter(Boolean))];
+  }
+
+  private async _deleteAll() {
+    const ok = await this.confirmDialog.confirm(`Delete all ${this.documents.length} documents? This cannot be undone and will also remove all analysis data.`);
+    if (!ok) return;
+    await deleteAllDocuments();
+    await this._load();
   }
 
   private async onSearch(e: CustomEvent) {
@@ -65,7 +78,15 @@ export class LibraryPage extends LitElement {
 
     return html`
       <div class="p-6 space-y-6">
-        <h1 class="text-2xl font-bold">Library</h1>
+        <div class="flex items-center justify-between">
+          <h1 class="text-2xl font-bold">Library</h1>
+          ${this.documents.length > 0 ? html`
+            <button class="btn btn-error btn-sm" @click=${this._deleteAll}>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              Delete All
+            </button>
+          ` : ''}
+        </div>
 
         <search-bar @search=${this.onSearch}></search-bar>
 
@@ -104,6 +125,7 @@ export class LibraryPage extends LitElement {
           </p>
         `}
       </div>
+      <confirm-dialog></confirm-dialog>
     `;
   }
 

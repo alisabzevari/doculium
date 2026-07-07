@@ -1,8 +1,8 @@
 import { LitElement, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { scanDirectory, type ScanProgress } from '../services/document-scanner.ts';
+import { scanDirectory, type ScanProgress, type NewDocInfo } from '../services/document-scanner.ts';
 import { processQueue } from '../services/analysis-queue.ts';
-import { getFailedDocuments, deleteDocument, addAnalysisJob } from '../db/document-store.ts';
+import { addDocument, addAnalysisJob } from '../db/document-store.ts';
 import { getDirectoryHandle, getDirectoryName } from '../utils/handle-store.ts';
 import { v4 as uuid } from 'uuid';
 
@@ -12,7 +12,7 @@ export class ScanPage extends LitElement {
   @state() private scanning = false;
   @state() private analyzing = false;
   @state() private progress: ScanProgress | null = null;
-  @state() private newDocs: Array<{ id: string; name: string; size: number }> = [];
+  @state() private newDocs: NewDocInfo[] = [];
   @state() private noFolder = false;
   @state() private folderName: string | null = null;
   @state() private selected: Set<string> = new Set();
@@ -69,6 +69,37 @@ export class ScanPage extends LitElement {
 
     const now = new Date().toISOString();
     for (const docId of selectedIds) {
+      const info = this.newDocs.find(d => d.id === docId);
+      if (!info) continue;
+
+      await addDocument({
+        id: docId,
+        originalName: info.name,
+        originalPath: info.name,
+        storedPath: null,
+        fileType: info.fileType,
+        fileSize: info.size,
+        fileHash: info.fileHash,
+        extractedText: info.extractedText,
+        summary: '',
+        audience: '',
+        urgency: 'medium',
+        taxRelevant: false,
+        category: '',
+        year: new Date().getFullYear(),
+        month: null,
+        dateFrom: null,
+        dateTo: null,
+        suggestedFilename: null,
+        tags: [],
+        confidence: 0,
+        status: 'pending',
+        error: null,
+        createdAt: now,
+        updatedAt: now,
+        syncedAt: null,
+      });
+
       await addAnalysisJob({
         id: uuid(),
         documentId: docId,
@@ -122,8 +153,8 @@ export class ScanPage extends LitElement {
 
   render() {
     return html`
-      <div class="p-6 space-y-6">
-        <h1 class="text-2xl font-bold">Scan Documents</h1>
+      <div class="p-6 flex flex-col h-full gap-6">
+        <h1 class="text-2xl font-bold shrink-0">Scan Documents</h1>
 
         ${this.noFolder ? html`
           <div class="bg-base-200 p-6 text-center space-y-3">
@@ -151,8 +182,8 @@ export class ScanPage extends LitElement {
               </button>
             </div>
           ` : html`
-            <div class="bg-base-200">
-              <div class="flex items-center justify-between px-4 py-3 border-b border-base-300">
+            <div class="bg-base-200 flex flex-col flex-1 min-h-0">
+              <div class="flex items-center justify-between px-4 py-3 border-b border-base-300 shrink-0">
                 <div class="flex items-center gap-3">
                   ${this.analyzing ? '' : html`
                     <input type="checkbox" class="checkbox checkbox-sm"
@@ -170,7 +201,7 @@ export class ScanPage extends LitElement {
                   </button>
                 ` : ''}
               </div>
-              <div class="divide-y divide-base-300 max-h-96 overflow-y-auto">
+              <div class="divide-y divide-base-300 flex-1 overflow-y-auto">
                 ${this.newDocs.map(d => {
                   const status = this.fileStatus.get(d.id) || 'pending';
                   return html`
@@ -189,10 +220,11 @@ export class ScanPage extends LitElement {
                           })()}
                           <p class="text-sm truncate ${status === 'analyzed' ? 'text-success' : ''}">${d.name}</p>
                           ${this._statusIcon(d.id)}
-                          ${status === 'analyzed' ? html`<span class="badge badge-soft badge-success badge-xs">Analyzed</span>` : ''}
-                          ${status === 'error' ? html`<span class="badge badge-soft badge-error badge-xs" title=${this.fileErrors.get(d.id) || ''}>Failed</span>` : ''}
-                          ${status === 'analyzing' ? html`<span class="badge badge-soft badge-info badge-xs">Analyzing...</span>` : ''}
+                          ${status === 'analyzed' ? html`<span class="badge badge-soft badge-success badge-xs shrink-0">Analyzed</span>` : ''}
+                          ${status === 'error' ? html`<span class="badge badge-soft badge-error badge-xs shrink-0">Failed</span>` : ''}
+                          ${status === 'analyzing' ? html`<span class="badge badge-soft badge-info badge-xs shrink-0">Analyzing...</span>` : ''}
                         </div>
+                        ${status === 'error' ? html`<p class="text-xs text-error mt-0.5 truncate">${this.fileErrors.get(d.id) || 'Unknown error'}</p>` : ''}
                         <p class="text-xs opacity-50 mt-0.5">${(d.size / 1024).toFixed(1)} KB</p>
                       </div>
                     </label>

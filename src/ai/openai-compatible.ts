@@ -84,7 +84,21 @@ export class OpenAICompatibleProvider implements AIProvider {
 
   private parseResponse(raw: string): AnalysisResult {
     const cleaned = raw.replace(/```(?:json)?\s*/g, '').trim();
-    const parsed = JSON.parse(cleaned);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          parsed = JSON.parse(match[0]);
+        } catch {
+          throw new Error(`AI returned invalid JSON. Response preview: ${cleaned.slice(0, 300)}`);
+        }
+      } else {
+        throw new Error(`AI returned invalid JSON. Response preview: ${cleaned.slice(0, 300)}`);
+      }
+    }
 
     return {
       summary: String(parsed.summary ?? ''),

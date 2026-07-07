@@ -7,7 +7,11 @@ let workerSrcSet = false;
 
 function ensureWorker(): void {
   if (!workerSrcSet) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+    const opts = pdfjsLib.GlobalWorkerOptions as any;
+    opts.workerSrc = pdfWorkerUrl;
+    opts.cMapUrl = '/pdfjs-cmaps/';
+    opts.standardFontDataUrl = '/pdfjs-stdfonts/';
+    opts.cMapPacked = true;
     workerSrcSet = true;
   }
 }

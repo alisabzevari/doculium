@@ -68,6 +68,7 @@ export class DocumentChat extends LitElement {
 
     await this.updateComplete;
     this._scrollDown();
+    this.inputEl?.focus();
   }
 
   private async _clear() {

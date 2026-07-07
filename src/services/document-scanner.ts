@@ -1,6 +1,6 @@
 import { pickSourceDirectory, readFileAsText, computeFileHash, type FileEntry } from './file-operations.ts';
 import { extractTextFromPDF } from '../utils/pdf-parser.ts';
-import { addDocument, findDocumentByHash } from '../db/document-store.ts';
+import { findDocumentByHash } from '../db/document-store.ts';
 import { v4 as uuid } from 'uuid';
 
 export interface ScanProgress {
@@ -11,12 +11,21 @@ export interface ScanProgress {
   duplicates: number;
 }
 
+export interface NewDocInfo {
+  id: string;
+  name: string;
+  size: number;
+  fileHash: string;
+  extractedText: string;
+  fileType: string;
+}
+
 export interface ScanResult {
   dirHandle: FileSystemDirectoryHandle | null;
   scanned: number;
   newFiles: number;
   duplicates: number;
-  newDocs: Array<{ id: string; name: string; size: number }>;
+  newDocs: NewDocInfo[];
 }
 
 export type ScanCallback = (progress: ScanProgress) => void;
@@ -78,38 +87,9 @@ export async function scanDirectory(
       }
     }
 
-    const now = new Date().toISOString();
     const docId = uuid();
 
-    await addDocument({
-      id: docId,
-      originalName: entry.name,
-      originalPath: entry.name,
-      storedPath: null,
-      fileType: entry.type,
-      fileSize: file.size,
-      fileHash: hash,
-      extractedText,
-      summary: '',
-      audience: '',
-      urgency: 'medium',
-      taxRelevant: false,
-      category: '',
-      year: new Date().getFullYear(),
-      month: null,
-      dateFrom: null,
-      dateTo: null,
-      suggestedFilename: null,
-      tags: [],
-      confidence: 0,
-      status: 'pending',
-      error: null,
-      createdAt: now,
-      updatedAt: now,
-      syncedAt: null,
-    });
-
-    newDocs.push({ id: docId, name: entry.name, size: file.size });
+    newDocs.push({ id: docId, name: entry.name, size: file.size, fileHash: hash, extractedText, fileType: entry.type });
     newFiles++;
   }
 

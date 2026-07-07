@@ -2,9 +2,10 @@ import { LitElement, html } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 import { getSettings, saveSettings, type AppSettings } from '../db/config-store.ts';
 import { db } from '../db/schema.ts';
-import { resetProvider, testConnection } from '../ai/analyzer.ts';
+import { resetProvider, testConnection, getAIProvider } from '../ai/analyzer.ts';
 import { initTurso, syncDocuments, getLastError } from '../db/turso-sync.ts';
 import type { Category } from '../db/schema.ts';
+import type { LocalProvider } from '../ai/local.ts';
 import { v4 as uuid } from 'uuid';
 import { pickAndSaveDirectory, getDirectoryName } from '../utils/handle-store.ts';
 import { type ToastNotification } from '../components/toast-notification.ts';
@@ -19,6 +20,9 @@ export class SettingsPage extends LitElement {
   @state() private newCategoryName = '';
   @state() private activeTab = 'ai';
   @state() private folderName: string | null = null;
+  @state() private downloadProgress = '';
+  @state() private downloadPercent = 0;
+  @state() private downloadStatus: '' | 'downloading' | 'done' | 'error' = '';
   @query('toast-notification') toast!: ToastNotification;
 
   async connectedCallback() {
@@ -98,6 +102,45 @@ export class SettingsPage extends LitElement {
     }
   }
 
+  private async _downloadLocalModel() {
+    if (!this.settings) return;
+    this.downloadStatus = 'downloading';
+    this.downloadProgress = 'Starting download...';
+    this.requestUpdate();
+
+    await this.save();
+
+    try {
+      const provider = await getAIProvider() as LocalProvider;
+      await provider.downloadModel((_text, progress) => {
+        this.downloadPercent = progress;
+        this.downloadProgress = `${(progress * 100).toFixed(1)}%`;
+        this.requestUpdate();
+      });
+      this.downloadStatus = 'done';
+      this.downloadPercent = 1;
+      this.downloadProgress = 'Model ready!';
+    } catch (err: any) {
+      this.downloadStatus = 'error';
+      this.downloadProgress = err.message || 'Download failed';
+    }
+  }
+
+  private async _clearModelCache() {
+    if (!this.settings) return;
+    const cacheName = 'webllm';
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k.startsWith('webllm') || k.includes('mlc') || k.includes('web-llm')).map(k => caches.delete(k)));
+    const provider = await getAIProvider() as LocalProvider | null;
+    if (provider && 'unload' in provider) {
+      await (provider as any).unload?.();
+    }
+    resetProvider();
+    this.downloadStatus = '';
+    this.downloadProgress = 'Cache cleared.';
+    this.toast?.show('Model cache cleared');
+  }
+
   render() {
     if (!this.settings) return html`<div class="p-6"><span class="loading loading-spinner"></span></div>`;
 
@@ -139,26 +182,87 @@ export class SettingsPage extends LitElement {
                 <option value="openai-compatible">OpenAI Compatible</option>
                 <option value="anthropic">Anthropic Claude</option>
                 <option value="gemini">Google Gemini</option>
+                <option value="local">Local AI (WebLLM)</option>
               </select>
             </div>
-            <div>
-              <label class="label">Base URL</label>
-              <input class="input w-full" type="url" .value=${this.settings.aiProvider.baseUrl}
-                @change=${(e: Event) => { const v = (e.target as HTMLInputElement).value; this.settings = this.settings ? { ...this.settings, aiProvider: { ...this.settings.aiProvider, baseUrl: v } } : null; }}
-                placeholder="https://api.openai.com" />
-              <p class="text-xs opacity-50 mt-1">For Ollama: http://localhost:11434</p>
-            </div>
-            <div>
-              <label class="label">API Key</label>
-              <input class="input w-full" type="password" .value=${this.settings.aiProvider.apiKey}
-                @change=${(e: Event) => { const v = (e.target as HTMLInputElement).value; this.settings = this.settings ? { ...this.settings, aiProvider: { ...this.settings.aiProvider, apiKey: v } } : null; }} />
-            </div>
-            <div>
-              <label class="label">Model</label>
-              <input class="input w-full" .value=${this.settings.aiProvider.model}
-                @change=${(e: Event) => { const v = (e.target as HTMLInputElement).value; this.settings = this.settings ? { ...this.settings, aiProvider: { ...this.settings.aiProvider, model: v } } : null; }}
-                placeholder="gpt-4o" />
-            </div>
+
+            ${this.settings.aiProvider.type === 'local' ? html`
+              <div>
+                <label class="label">Local Model</label>
+                <select class="select w-full" .value=${this.settings.aiProvider.model}
+                  @change=${(e: Event) => {
+                    const v = (e.target as HTMLSelectElement).value;
+                    this.settings = this.settings ? { ...this.settings, aiProvider: { ...this.settings.aiProvider, model: v } } : null;
+                  }}>
+                  <optgroup label="Fast (low VRAM)">
+                    <option value="SmolLM2-360M-Instruct-q4f16_1-MLC">SmolLM2 360M (~376 MB VRAM)</option>
+                    <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B (~879 MB VRAM)</option>
+                    <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen 2.5 0.5B (~945 MB VRAM)</option>
+                  </optgroup>
+                  <optgroup label="Balanced">
+                    <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">Qwen 2.5 1.5B (~1.6 GB VRAM)</option>
+                    <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama 3.2 3B (~2.3 GB VRAM)</option>
+                    <option value="Qwen2.5-3B-Instruct-q4f16_1-MLC">Qwen 2.5 3B (~2.5 GB VRAM)</option>
+                  </optgroup>
+                  <optgroup label="High-end (8GB+ VRAM)">
+                    <option value="Qwen2.5-7B-Instruct-q4f16_1-MLC">Qwen 2.5 7B (~5.1 GB VRAM)</option>
+                    <option value="Llama-3.1-8B-Instruct-q4f16_1-MLC">Llama 3.1 8B (~5 GB VRAM)</option>
+                  </optgroup>
+                </select>
+                <p class="text-xs opacity-50 mt-1">Requires WebGPU (Chrome/Edge).</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs">WebGPU:</span>
+                ${'gpu' in navigator && navigator.gpu ? html`
+                  <span class="badge badge-success badge-sm">Available</span>
+                ` : html`
+                  <span class="badge badge-error badge-sm">Not available</span>
+                `}
+              </div>
+              <div class="space-y-2">
+                <button class="btn btn-primary btn-sm" ?disabled=${this.downloadStatus === 'downloading' || !('gpu' in navigator && navigator.gpu)} @click=${this._downloadLocalModel}>
+                  ${this.downloadStatus === 'downloading' ? html`<span class="loading loading-spinner loading-xs"></span>` : ''}
+                  ${this.downloadStatus === 'done' ? 'Re-download Model' : this.downloadStatus === 'downloading' ? 'Downloading...' : 'Download Model'}
+                </button>
+                ${this.downloadStatus === 'downloading' ? html`
+                  <progress class="progress progress-primary w-full" value="${Math.round(this.downloadPercent * 100)}" max="100"></progress>
+                ` : ''}
+                ${this.downloadProgress ? html`
+                  <p class="text-xs opacity-70">${this.downloadProgress}</p>
+                ` : ''}
+                ${this.downloadStatus === 'done' ? html`
+                  <p class="text-xs text-success">Model cached and ready to use.</p>
+                ` : ''}
+                ${this.downloadStatus === 'error' ? html`
+                  <p class="text-xs text-error">${this.downloadProgress}</p>
+                ` : ''}
+              </div>
+              <div class="flex gap-2">
+                ${this.downloadStatus === 'done' ? html`
+                  <button class="btn btn-ghost btn-xs" @click=${this._clearModelCache}>Clear Cache</button>
+                ` : ''}
+              </div>
+            ` : html`
+              <div>
+                <label class="label">Base URL</label>
+                <input class="input w-full" type="url" .value=${this.settings.aiProvider.baseUrl}
+                  @change=${(e: Event) => { const v = (e.target as HTMLInputElement).value; this.settings = this.settings ? { ...this.settings, aiProvider: { ...this.settings.aiProvider, baseUrl: v } } : null; }}
+                  placeholder="https://api.openai.com" />
+                <p class="text-xs opacity-50 mt-1">For Ollama: http://localhost:11434</p>
+              </div>
+              <div>
+                <label class="label">API Key</label>
+                <input class="input w-full" type="password" .value=${this.settings.aiProvider.apiKey}
+                  @change=${(e: Event) => { const v = (e.target as HTMLInputElement).value; this.settings = this.settings ? { ...this.settings, aiProvider: { ...this.settings.aiProvider, apiKey: v } } : null; }} />
+              </div>
+              <div>
+                <label class="label">Model</label>
+                <input class="input w-full" .value=${this.settings.aiProvider.model}
+                  @change=${(e: Event) => { const v = (e.target as HTMLInputElement).value; this.settings = this.settings ? { ...this.settings, aiProvider: { ...this.settings.aiProvider, model: v } } : null; }}
+                  placeholder="gpt-4o" />
+              </div>
+            `}
+
             <div class="flex gap-2">
               <button class="tooltip btn btn-primary" data-tip="Save settings" @click=${this.save}>Save</button>
               <button class="tooltip btn btn-ghost" data-tip="Test AI connection" @click=${this.testAI}>Test Connection</button>

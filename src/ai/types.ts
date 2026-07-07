@@ -14,7 +14,7 @@ export interface AnalysisResult {
 }
 
 export interface AIProviderConfig {
-  type: 'openai-compatible' | 'anthropic' | 'gemini';
+  type: 'openai-compatible' | 'anthropic' | 'gemini' | 'local';
   baseUrl: string;
   apiKey: string;
   model: string;

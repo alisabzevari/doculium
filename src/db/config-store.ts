@@ -1,7 +1,7 @@
 import { db, getDefaultCategories } from './schema.ts';
 
 export interface AIProviderConfig {
-  type: 'openai-compatible' | 'anthropic' | 'gemini';
+  type: 'openai-compatible' | 'anthropic' | 'gemini' | 'local';
   baseUrl: string;
   apiKey: string;
   model: string;
@@ -20,19 +20,32 @@ export interface AppSettings {
 
 const STORAGE_KEY = 'doculium-settings';
 
-const DEFAULT_ANALYSIS_PROMPT = `You are a document analysis assistant. Analyze the following document and return ONLY a JSON object (no markdown, no code fences) with these fields:
-- summary: 2-3 sentence summary of what this document is about
-- audience: who sent this / who is it addressed to
-- urgency: "low", "medium", "high", or "critical"
-- actionItems: array of suggested action strings
-- taxRelevant: boolean indicating if important for tax purposes
-- category: must be one of the valid categories. never invent a new category
-- year: 4-digit year this document relates to
-- month: 1-12 month number if applicable, or null
-- suggestedFilename: a clean descriptive filename with extension
-- dateFrom: ISO date string for effective date, or null
-- dateTo: ISO date string if it covers a range, or null
-- tags: array of relevant keyword strings
+const DEFAULT_ANALYSIS_PROMPT = `You are a document analysis assistant. Analyze the document text below and return ONLY a valid JSON object with EXACTLY this structure (no markdown, no code fences, no extra text):
+
+{
+  "summary": "2-3 sentence summary of what this document is about",
+  "audience": "who sent this / who is it addressed to",
+  "urgency": "low",
+  "actionItems": ["action item 1", "action item 2"],
+  "taxRelevant": false,
+  "category": "Misc",
+  "year": 2026,
+  "month": null,
+  "suggestedFilename": "descriptive-filename.pdf",
+  "dateFrom": null,
+  "dateTo": null,
+  "tags": ["keyword1", "keyword2"]
+}
+
+Rules:
+- urgency must be one of: "low", "medium", "high", "critical"
+- category must be one of the valid categories listed below. Never invent a new category.
+- year is the 4-digit year this document relates to
+- month is 1-12 or null
+- dateFrom and dateTo are ISO date strings (e.g. "2026-01-15") or null
+- suggestedFilename should be a clean descriptive filename with extension
+- taxRelevant is boolean
+- actionItems and tags are arrays of strings
 
 Valid categories:`;
 

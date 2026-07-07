@@ -103,6 +103,17 @@ export async function deleteDocument(id: string): Promise<void> {
   await db.documents.delete(id);
   await db.actionItems.where("documentId").equals(id).delete();
   await db.analysisJobs.where("documentId").equals(id).delete();
+  await db.chatMessages.where("documentId").equals(id).delete();
+}
+
+export async function deleteAllDocuments(): Promise<number> {
+  const all = await db.documents.toArray();
+  const ids = all.map(d => d.id);
+  await db.documents.clear();
+  await db.actionItems.clear();
+  await db.analysisJobs.clear();
+  await db.chatMessages.clear();
+  return ids.length;
 }
 
 export async function addAnalysisJob(job: AnalysisJob): Promise<string> {
