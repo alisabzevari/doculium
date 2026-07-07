@@ -79,64 +79,12 @@ export class AppShell extends LitElement {
           ? "open"
           : ""}"
       >
-        <div class="p-4 border-b border-base-300">
-          <h1 class="text-xl font-bold flex items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-8 h-8"
-              viewBox="0 0 32 32"
-              fill="none"
-            >
-              <rect width="32" height="32" rx="7" fill="var(--color-primary)" />
-              <rect
-                x="7"
-                y="6"
-                width="16"
-                height="20"
-                rx="3"
-                fill="var(--color-primary-content)"
-              />
-              <path
-                d="M23 12h-5a1.5 1.5 0 0 1-1.5-1.5V6"
-                fill="var(--color-base-content)"
-                opacity="0.15"
-              />
-              <path
-                d="M23 12h-5a1.5 1.5 0 0 1-1.5-1.5V6l6.5 6Z"
-                fill="var(--color-base-content)"
-                opacity="0.08"
-              />
-              <rect
-                x="10"
-                y="15"
-                width="10"
-                height="1.2"
-                rx="0.6"
-                fill="var(--color-primary)"
-                opacity="0.5"
-              />
-              <rect
-                x="10"
-                y="19"
-                width="7.5"
-                height="1.2"
-                rx="0.6"
-                fill="var(--color-primary)"
-                opacity="0.3"
-              />
-              <rect
-                x="10"
-                y="23"
-                width="8.5"
-                height="1.2"
-                rx="0.6"
-                fill="var(--color-primary)"
-                opacity="0.3"
-              />
-            </svg>
-            Doculium
-          </h1>
-        </div>
+          <div class="p-4 border-b border-base-300">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+              <logo-icon size="32"></logo-icon>
+              Doculium
+            </h1>
+          </div>
 
         <nav class="flex-1 p-2 space-y-1">
           <button
@@ -266,49 +214,7 @@ export class AppShell extends LitElement {
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-6 h-6"
-            viewBox="0 0 32 32"
-            fill="none"
-          >
-            <rect width="32" height="32" rx="7" fill="var(--color-primary)" />
-            <rect
-              x="7"
-              y="6"
-              width="16"
-              height="20"
-              rx="3"
-              fill="var(--color-primary-content)"
-            />
-            <rect
-              x="10"
-              y="15"
-              width="10"
-              height="1.2"
-              rx="0.6"
-              fill="var(--color-primary)"
-              opacity="0.5"
-            />
-            <rect
-              x="10"
-              y="19"
-              width="7.5"
-              height="1.2"
-              rx="0.6"
-              fill="var(--color-primary)"
-              opacity="0.3"
-            />
-            <rect
-              x="10"
-              y="23"
-              width="8.5"
-              height="1.2"
-              rx="0.6"
-              fill="var(--color-primary)"
-              opacity="0.3"
-            />
-          </svg>
+          <logo-icon size="24"></logo-icon>
           <span class="font-semibold">Doculium</span>
         </div>
         ${this._router.outlet()}
