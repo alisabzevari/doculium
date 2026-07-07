@@ -1,0 +1,14 @@
+import './styles/global.css';
+import './app-shell.ts';
+import './pages/dashboard-page.ts';
+import './pages/scan-page.ts';
+import './pages/library-page.ts';
+import './pages/document-detail.ts';
+import './pages/settings-page.ts';
+import './components/document-card.ts';
+import './components/action-item-list.ts';
+import './components/search-bar.ts';
+import './components/document-viewer.ts';
+import './components/confirm-dialog.ts';
+import './components/toast-notification.ts';
+import './components/document-chat.ts';

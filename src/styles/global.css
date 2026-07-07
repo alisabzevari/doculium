@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+:root,
+[data-theme] {
+  --radius-selector: 0rem;
+  --radius-field: 0rem;
+  --radius-box: 0rem;
+  --border: 2px;
+}
+
+app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+dashboard-page,
+scan-page,
+library-page,
+document-detail,
+settings-page,
+document-card,
+action-item-list,
+search-bar {
+  display: block;
+}
+
+.sidebar {
+  width: 240px;
+  transition: transform 0.2s;
+  z-index: 50;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    inset: 0;
+    transform: translateX(-100%);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+  }
+}
+
+.item + .item {
+  border-top: 1px solid var(--fallback-bc, oklch(0 0 0 / 0.1));
+}
+
+.urgency-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.critical { background: var(--color-error); }
+.high { background: var(--color-warning); }
+.medium { background: var(--color-primary); }
+.low { background: var(--color-success); }
