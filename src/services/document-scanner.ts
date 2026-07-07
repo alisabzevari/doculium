@@ -1,4 +1,4 @@
-import { pickSourceDirectory, readFileAsText, computeFileHash, type FileEntry } from './file-operations.ts';
+import { pickSourceDirectory, readFileAsText, computeFileHash } from './file-operations.ts';
 import { extractTextFromPDF } from '../utils/pdf-parser.ts';
 import { findDocumentByHash } from '../db/document-store.ts';
 import { v4 as uuid } from 'uuid';
@@ -9,6 +9,7 @@ export interface ScanProgress {
   currentFile: string;
   newFiles: number;
   duplicates: number;
+  stoppedEarly: boolean;
 }
 
 export interface NewDocInfo {
@@ -27,6 +28,7 @@ export interface ScanResult {
   newFiles: number;
   duplicates: number;
   newDocs: NewDocInfo[];
+  stoppedEarly: boolean;
 }
 
 export type ScanCallback = (progress: ScanProgress) => void;
@@ -54,25 +56,60 @@ async function collectOrganizedFiles(
   return results;
 }
 
+async function processFile(
+  handle: FileSystemFileHandle,
+  name: string,
+  fileType: string,
+  organizedPath?: string,
+): Promise<NewDocInfo | null> {
+  const file = await handle.getFile();
+  const hash = await computeFileHash(file);
+
+  const existing = await findDocumentByHash(hash);
+  if (existing) return null;
+
+  let extractedText = '';
+  if (file.type === 'application/pdf' || name.toLowerCase().endsWith('.pdf')) {
+    try {
+      extractedText = await extractTextFromPDF(file);
+    } catch {
+      extractedText = '[PDF text extraction failed]';
+    }
+  } else {
+    try {
+      extractedText = await readFileAsText(file);
+    } catch {
+      extractedText = '';
+    }
+  }
+
+  return {
+    id: uuid(),
+    name,
+    size: file.size,
+    fileHash: hash,
+    extractedText,
+    fileType: file.type || fileType,
+    organizedPath,
+  };
+}
+
 export async function scanDirectory(
   onProgress: ScanCallback,
   existingHandle?: FileSystemDirectoryHandle | null,
+  onNewFile?: (doc: NewDocInfo) => void,
+  maxNew: number = 20,
 ): Promise<ScanResult> {
   const dirHandle = existingHandle ?? await pickSourceDirectory();
-  if (!dirHandle) return { dirHandle: null, scanned: 0, newFiles: 0, duplicates: 0, newDocs: [] };
+  if (!dirHandle) {
+    return { dirHandle: null, scanned: 0, newFiles: 0, duplicates: 0, newDocs: [], stoppedEarly: false };
+  }
 
-  const rootEntries: FileEntry[] = [];
+  const rootEntries: { handle: FileSystemFileHandle; name: string; type: string }[] = [];
   for await (const [name, handle] of dirHandle.entries()) {
     if (handle.kind === 'file') {
-      const file = await (handle as FileSystemFileHandle).getFile();
       if (isSupportedFileType(name)) {
-        rootEntries.push({
-          handle: handle as FileSystemFileHandle,
-          name,
-          path: [name],
-          size: file.size,
-          type: file.type || inferType(name),
-        });
+        rootEntries.push({ handle: handle as FileSystemFileHandle, name, type: inferType(name) });
       }
     }
   }
@@ -82,76 +119,44 @@ export async function scanDirectory(
   let current = 0;
   let newFiles = 0;
   let duplicates = 0;
-  const newDocs: ScanResult['newDocs'] = [];
+  const newDocs: NewDocInfo[] = [];
+  let stoppedEarly = false;
 
   for (const entry of rootEntries) {
+    if (newFiles >= maxNew) { stoppedEarly = true; break; }
     current++;
-    onProgress({ total, current, currentFile: entry.name, newFiles, duplicates });
+    onProgress({ total, current, currentFile: entry.name, newFiles, duplicates, stoppedEarly: false });
 
-    const file = await entry.handle.getFile();
-    const hash = await computeFileHash(file);
-
-    const existing = await findDocumentByHash(hash);
-    if (existing) {
-      duplicates++;
-      continue;
-    }
-
-    let extractedText = '';
-    if (file.type === 'application/pdf' || entry.name.toLowerCase().endsWith('.pdf')) {
-      try {
-        extractedText = await extractTextFromPDF(file);
-      } catch {
-        extractedText = '[PDF text extraction failed]';
-      }
+    const doc = await processFile(entry.handle, entry.name, entry.type);
+    if (doc) {
+      newDocs.push(doc);
+      newFiles++;
+      onNewFile?.(doc);
     } else {
-      try {
-        extractedText = await readFileAsText(file);
-      } catch {
-        extractedText = '';
-      }
+      duplicates++;
     }
-
-    const docId = uuid();
-    newDocs.push({ id: docId, name: entry.name, size: file.size, fileHash: hash, extractedText, fileType: entry.type });
-    newFiles++;
   }
 
-  for (const org of organizedFiles) {
-    current++;
-    const pathStr = `${org.year}/${org.category}/${org.name}`;
-    onProgress({ total, current, currentFile: pathStr, newFiles, duplicates });
+  if (!stoppedEarly) {
+    for (const org of organizedFiles) {
+      if (newFiles >= maxNew) { stoppedEarly = true; break; }
+      current++;
+      const pathStr = `${org.year}/${org.category}/${org.name}`;
+      onProgress({ total, current, currentFile: pathStr, newFiles, duplicates, stoppedEarly: false });
 
-    const file = await org.handle.getFile();
-    const hash = await computeFileHash(file);
-
-    const existing = await findDocumentByHash(hash);
-    if (existing) {
-      duplicates++;
-      continue;
-    }
-
-    let extractedText = '';
-    if (file.type === 'application/pdf' || org.name.toLowerCase().endsWith('.pdf')) {
-      try {
-        extractedText = await extractTextFromPDF(file);
-      } catch {
-        extractedText = '[PDF text extraction failed]';
-      }
-    } else {
-      try {
-        extractedText = await readFileAsText(file);
-      } catch {
-        extractedText = '';
+      const doc = await processFile(org.handle, org.name, inferType(org.name), pathStr);
+      if (doc) {
+        newDocs.push(doc);
+        newFiles++;
+        onNewFile?.(doc);
+      } else {
+        duplicates++;
       }
     }
-
-    const docId = uuid();
-    newDocs.push({ id: docId, name: org.name, size: file.size, fileHash: hash, extractedText, fileType: file.type || inferType(org.name), organizedPath: pathStr });
-    newFiles++;
   }
 
-  return { dirHandle, scanned: total, newFiles, duplicates, newDocs };
+  onProgress({ total, current, currentFile: '', newFiles, duplicates, stoppedEarly });
+  return { dirHandle, scanned: total, newFiles, duplicates, newDocs, stoppedEarly };
 }
 
 const SUPPORTED_EXTENSIONS = new Set([

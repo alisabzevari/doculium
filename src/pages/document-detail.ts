@@ -2,7 +2,7 @@ import { LitElement, html } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
-import { getDocument, getActionItemsByDocument, deleteDocument, addAnalysisJob, updateDocument } from '../db/document-store.ts';
+import { getDocument, getActionItemsByDocument, deleteDocument, addAnalysisJob, updateDocument, resetDocumentForAnalysis } from '../db/document-store.ts';
 import { processQueue } from '../services/analysis-queue.ts';
 import { getDirectoryHandle, getDocumentFile, hasDirectoryHandle } from '../utils/handle-store.ts';
 import type { Document, ActionItem } from '../db/schema.ts';
@@ -86,6 +86,11 @@ export class DocumentDetail extends LitElement {
     if (!this.doc || this.analyzing) return;
     this.analyzing = true;
     const now = new Date().toISOString();
+    if (this.doc.status === 'analyzed') {
+      await resetDocumentForAnalysis(this.doc.id);
+    } else {
+      await updateDocument(this.doc.id, { status: 'pending', error: null });
+    }
     await addAnalysisJob({
       id: uuid(),
       documentId: this.doc.id,
@@ -100,7 +105,6 @@ export class DocumentDetail extends LitElement {
       createdAt: now,
       updatedAt: now,
     });
-    await updateDocument(this.doc.id, { status: 'pending', error: null });
     const dirHandle = await getDirectoryHandle();
     try {
       await processQueue(dirHandle, [this.doc.id], (p) => {
@@ -135,10 +139,10 @@ export class DocumentDetail extends LitElement {
            ${d.urgency === 'critical' ? html`<icon-svg name="alertTriangle" size="12"></icon-svg>` : d.urgency === 'high' ? html`<icon-svg name="arrowUp" size="12"></icon-svg>` : d.urgency === 'medium' ? html`<icon-svg name="minus" size="12"></icon-svg>` : html`<icon-svg name="arrowDown" size="12"></icon-svg>`}
            ${d.urgency}</span>
          ${d.taxRelevant ? html`<span class="badge badge-warning">Tax Relevant</span>` : ''}
-         ${(d.status === 'pending' || d.status === 'error') && !this.analyzing ? html`
-          <button class="tooltip btn btn-primary btn-sm" data-tip="Analyze this document" @click=${this._analyze}>
+         ${!this.analyzing ? html`
+          <button class="tooltip btn btn-primary btn-sm" data-tip="${d.status === 'analyzed' ? 'Re-analyze this document' : 'Analyze this document'}" @click=${this._analyze}>
            <icon-svg name="sparkles" size="16"></icon-svg>
-           Analyze
+           ${d.status === 'analyzed' ? 'Re-analyze' : 'Analyze'}
           </button>
          ` : ''}
          ${this.analyzing ? html`<span class="loading loading-spinner loading-sm"></span>` : ''}

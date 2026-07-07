@@ -5,7 +5,7 @@ import {
   updateDocument,
   addActionItem,
 } from '../db/document-store.ts';
-import { analyzeDocument } from '../ai/analyzer.ts';
+import { analyzeDocument, improveText } from '../ai/analyzer.ts';
 import { organizeFile } from '../services/file-operations.ts';
 import type { AnalysisResult } from '../ai/types.ts';
 import { db } from '../db/schema.ts';
@@ -55,10 +55,23 @@ export async function processQueue(
     onProgress?.({ docId: doc.id, status: 'analyzing', done, total });
 
     try {
+      let text = doc.extractedText || '[No extractable text]';
+      if (text && text !== '[No extractable text]') {
+        try {
+          const improved = await improveText(text);
+          if (improved) {
+            text = improved;
+            await updateDocument(doc.id, { extractedText: text });
+          }
+        } catch {
+          // keep original text
+        }
+      }
+
       const settings = await getSettings();
       const allCategories = await db.categories.toArray();
       const validCategoryNames = allCategories.map(c => c.name);
-      const result = await analyzeDocument(doc.extractedText || '[No extractable text]', {
+      const result = await analyzeDocument(text, {
         prompt: settings.analysisPrompt,
         validCategories: validCategoryNames,
       });

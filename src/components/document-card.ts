@@ -2,7 +2,7 @@ import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Document } from '../db/schema.ts';
 import { db } from '../db/schema.ts';
-import { addAnalysisJob } from '../db/document-store.ts';
+import { addAnalysisJob, resetDocumentForAnalysis } from '../db/document-store.ts';
 import { processQueue } from '../services/analysis-queue.ts';
 import { getDirectoryHandle } from '../utils/handle-store.ts';
 import { v4 as uuid } from 'uuid';
@@ -23,6 +23,9 @@ export class DocumentCard extends LitElement {
     if (this.analyzing) return;
     this.analyzing = true;
     const now = new Date().toISOString();
+    if (this.document.status === 'analyzed') {
+      await resetDocumentForAnalysis(this.document.id);
+    }
     await addAnalysisJob({
       id: uuid(),
       documentId: this.document.id,
@@ -81,7 +84,12 @@ export class DocumentCard extends LitElement {
             </div>
           </div>
           ${d.status === 'analyzed' && d.summary ? html`
-            <p class="text-xs text-base-content/70 line-clamp-2">${d.summary}</p>
+            <div class="flex items-start gap-2">
+              <p class="text-xs text-base-content/70 line-clamp-2 flex-1 min-w-0">${d.summary}</p>
+              <button class="tooltip btn btn-xs btn-ghost shrink-0" data-tip="Re-analyze" @click=${this.analyze}>
+                <icon-svg name="refresh" size="12"></icon-svg>
+              </button>
+            </div>
           ` : d.status === 'error' ? html`
             <div class="flex items-center gap-2">
               <icon-svg name="alertCircle" size="14" class="text-error shrink-0"></icon-svg>

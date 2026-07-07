@@ -1,6 +1,6 @@
 import { LitElement, html } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
-import { getAllDocuments, searchDocuments, getDocumentsByCategory, getDocumentsByYear, deleteAllDocuments, addAnalysisJob } from '../db/document-store.ts';
+import { getAllDocuments, searchDocuments, getDocumentsByCategory, getDocumentsByYear, deleteAllDocuments, addAnalysisJob, resetDocumentForAnalysis } from '../db/document-store.ts';
 import { processQueue } from '../services/analysis-queue.ts';
 import { getDirectoryHandle } from '../utils/handle-store.ts';
 import type { Document } from '../db/schema.ts';
@@ -72,15 +72,18 @@ export class LibraryPage extends LitElement {
   }
 
   private get pendingCount() {
-    return this.documents.filter(d => d.status === 'pending' || d.status === 'error').length;
+    return this.documents.filter(d => d.status === 'pending' || d.status === 'error' || d.status === 'analyzed').length;
   }
 
   async analyzePending() {
-    const pending = this.documents.filter(d => d.status === 'pending' || d.status === 'error');
+    const pending = this.documents.filter(d => d.status === 'pending' || d.status === 'error' || d.status === 'analyzed');
     if (pending.length === 0) return;
     this.analyzing = true;
     const now = new Date().toISOString();
     for (const doc of pending) {
+      if (doc.status === 'analyzed') {
+        await resetDocumentForAnalysis(doc.id);
+      }
       await addAnalysisJob({
         id: uuid(),
         documentId: doc.id,
@@ -131,9 +134,9 @@ export class LibraryPage extends LitElement {
           <h1 class="text-2xl font-bold">Library</h1>
           <div class="flex items-center gap-2">
             ${this.pendingCount > 0 ? html`
-              <button class="tooltip btn btn-primary btn-sm" data-tip="Analyze all unanalyzed documents" @click=${this.analyzePending} ?disabled=${this.analyzing}>
+              <button class="tooltip btn btn-primary btn-sm" data-tip="Analyze or re-analyze documents" @click=${this.analyzePending} ?disabled=${this.analyzing}>
                 ${this.analyzing ? html`<span class="loading loading-spinner loading-xs"></span>` : html`<icon-svg name="sparkles" size="16"></icon-svg>`}
-                Analyze Pending (${this.pendingCount})
+                Analyze (${this.pendingCount})
               </button>
             ` : ''}
             ${this.documents.length > 0 ? html`

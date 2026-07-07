@@ -157,6 +157,29 @@ export async function deleteAllDocuments(): Promise<number> {
   return ids.length;
 }
 
+export async function resetDocumentForAnalysis(id: string): Promise<void> {
+  const now = new Date().toISOString();
+  await db.documents.update(id, {
+    summary: '',
+    audience: '',
+    urgency: 'medium',
+    taxRelevant: false,
+    category: '',
+    year: new Date().getFullYear(),
+    month: null,
+    dateFrom: null,
+    dateTo: null,
+    suggestedFilename: null,
+    tags: [],
+    confidence: 0,
+    status: 'pending',
+    error: null,
+    updatedAt: now,
+  });
+  await db.actionItems.where('documentId').equals(id).delete();
+  await db.analysisJobs.where('documentId').equals(id).delete();
+}
+
 export async function addAnalysisJob(job: AnalysisJob): Promise<string> {
   await db.analysisJobs.add({ ...job, updatedAt: job.updatedAt || new Date().toISOString() });
   return job.id;
