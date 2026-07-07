@@ -37,7 +37,7 @@ export class DocumentCard extends LitElement {
                 </span>
                 ${d.taxRelevant ? html`<span class="badge badge-sm badge-warning">Tax</span>` : ''}
               </div>
-              <p class="font-medium text-sm truncate">${d.originalName}</p>
+              <p class="font-medium text-sm truncate" title="${d.originalName}">${d.originalName}</p>
             </div>
           </div>
           ${d.summary ? html`

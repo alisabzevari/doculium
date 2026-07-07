@@ -88,8 +88,8 @@ export class DocumentDetail extends LitElement {
      <div class="bg-base-200 p-4">
       <div class="flex items-start justify-between flex-wrap gap-2">
         <div class="min-w-0">
-         <h1 class="text-xl font-bold truncate">${d.originalName}</h1>
-         <p class="text-sm opacity-50 mt-1 truncate">${d.originalPath}</p>
+         <h1 class="text-xl font-bold truncate" title="${d.originalName}">${d.originalName}</h1>
+         <p class="text-sm opacity-50 mt-1 truncate" title="${d.originalPath}">${d.originalPath}</p>
        </div>
        <div class="flex items-center gap-2">
          <span class="badge gap-1 ${d.urgency === 'critical' ? 'badge-error' : d.urgency === 'high' ? 'badge-warning' : 'badge-ghost'}">

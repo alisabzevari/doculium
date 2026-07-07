@@ -219,13 +219,13 @@ export class ScanPage extends LitElement {
                             if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return html`<icon-svg name="image" size="16" class="shrink-0 text-primary"></icon-svg>`;
                             return html`<icon-svg name="file" size="16" class="shrink-0 opacity-50"></icon-svg>`;
                           })()}
-                          <p class="text-sm truncate ${status === 'analyzed' ? 'text-success' : ''}">${d.name}</p>
+                          <p class="text-sm truncate ${status === 'analyzed' ? 'text-success' : ''}" title="${d.name}">${d.name}</p>
                           ${this._statusIcon(d.id)}
                           ${status === 'analyzed' ? html`<span class="badge badge-soft badge-success badge-xs shrink-0">Analyzed</span>` : ''}
                           ${status === 'error' ? html`<span class="badge badge-soft badge-error badge-xs shrink-0">Failed</span>` : ''}
                           ${status === 'analyzing' ? html`<span class="badge badge-soft badge-info badge-xs shrink-0">Analyzing...</span>` : ''}
                         </div>
-                        ${status === 'error' ? html`<p class="text-xs text-error mt-0.5 truncate">${this.fileErrors.get(d.id) || 'Unknown error'}</p>` : ''}
+                        ${status === 'error' ? html`<p class="text-xs text-error mt-0.5 truncate" title="${this.fileErrors.get(d.id) || 'Unknown error'}">${this.fileErrors.get(d.id) || 'Unknown error'}</p>` : ''}
                         <p class="text-xs opacity-50 mt-0.5">${(d.size / 1024).toFixed(1)} KB</p>
                       </div>
                     </label>
