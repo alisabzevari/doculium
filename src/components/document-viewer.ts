@@ -158,17 +158,17 @@ export class DocumentViewer extends LitElement {
 
     return html`
       <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between px-4 py-2 border-b border-base-300">
+        <div class="flex items-center justify-between px-4 py-2 border-b border-base-300 flex-wrap gap-1">
           <div class="flex items-center gap-1">
-             <button class="tooltip btn btn-ghost btn-xs" data-tip="Zoom out" @click=${this._zoomOut} ?disabled=${this.zoom <= 0.25}>
+             <button class="tooltip btn btn-ghost btn-xs sm:btn-xs" data-tip="Zoom out" @click=${this._zoomOut} ?disabled=${this.zoom <= 0.25}>
               <icon-svg name="zoomOut" size="16"></icon-svg>
              </button>
-             <span class="text-xs tabular-nums w-12 text-center opacity-60">${Math.round(this.zoom * 100)}%</span>
-             <button class="tooltip btn btn-ghost btn-xs" data-tip="Zoom in" @click=${this._zoomIn} ?disabled=${this.zoom >= 5}>
+             <span class="text-xs tabular-nums min-w-[3rem] text-center opacity-60">${Math.round(this.zoom * 100)}%</span>
+             <button class="tooltip btn btn-ghost btn-xs sm:btn-xs" data-tip="Zoom in" @click=${this._zoomIn} ?disabled=${this.zoom >= 5}>
               <icon-svg name="zoomIn" size="16"></icon-svg>
              </button>
              <div class="w-px h-4 bg-base-300 mx-1"></div>
-             <button class="tooltip btn btn-ghost btn-xs ${this.fitMode === 'width' ? 'btn-active' : ''}" data-tip="Fit width" @click=${this._fitWidth}>
+             <button class="tooltip btn btn-ghost btn-xs sm:btn-xs ${this.fitMode === 'width' ? 'btn-active' : ''}" data-tip="Fit width" @click=${this._fitWidth}>
               <icon-svg name="maximize" size="16"></icon-svg>
             </button>
           </div>

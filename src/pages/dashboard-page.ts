@@ -23,7 +23,7 @@ export class DashboardPage extends LitElement {
    <div class="p-6 space-y-6">
     <h1 class="text-2xl font-bold">Dashboard</h1>
 
-     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="stat bg-base-200 p-4">
         <div class="stat-figure text-primary">
          <icon-svg name="file" size="24"></icon-svg>

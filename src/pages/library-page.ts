@@ -93,7 +93,7 @@ export class LibraryPage extends LitElement {
         <div class="flex flex-wrap gap-2">
           ${this.categories.map(cat => html`
             <button
-              class="btn btn-xs ${this.selectedCategory === cat ? 'btn-primary' : 'btn-ghost'}"
+              class="btn btn-sm sm:btn-xs ${this.selectedCategory === cat ? 'btn-primary' : 'btn-ghost'}"
               @click=${() => this.filterByCategory(cat)}
             >${cat} (${catCounts[cat] || 0})</button>
           `)}
@@ -102,7 +102,7 @@ export class LibraryPage extends LitElement {
         <div class="flex flex-wrap gap-2">
           ${this.years.map(y => html`
             <button
-              class="btn btn-xs ${this.selectedYear === y ? 'btn-primary' : 'btn-ghost'}"
+              class="btn btn-sm sm:btn-xs ${this.selectedYear === y ? 'btn-primary' : 'btn-ghost'}"
               @click=${() => this.filterByYear(y)}
             >${y}</button>
           `)}

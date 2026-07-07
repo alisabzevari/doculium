@@ -227,11 +227,11 @@ export class DocumentChat extends LitElement {
         .chat-msg strong { font-weight: 600; }
         .chat-msg a { text-decoration: underline; }
       </style>
-      <div class="flex flex-col h-full min-h-[400px]" style="max-height: 70vh;">
+      <div class="flex flex-col h-full min-h-[250px]" style="max-height: 70vh;">
         <div class="flex items-center justify-between px-4 py-2 border-b border-base-300">
           <span class="text-xs font-semibold opacity-60">Document Chat</span>
           ${this.messages.length > 0 ? html`
-             <button class="tooltip btn btn-ghost btn-xs text-error" data-tip="Clear history" @click=${this._clear}>Clear</button>
+             <button class="tooltip btn btn-ghost btn-sm text-error" data-tip="Clear history" @click=${this._clear}>Clear</button>
           ` : ''}
         </div>
         <div class="chat-scroll flex-1 overflow-y-auto p-4 space-y-4">

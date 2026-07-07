@@ -34,7 +34,7 @@ export class ActionItemList extends LitElement {
             <div class="item flex items-start gap-3 py-3">
               <input
                 type="checkbox"
-                class="checkbox checkbox-sm mt-0.5"
+                class="checkbox checkbox-sm md:checkbox-sm mt-0.5"
                 data-id="${item.id}"
                 ?checked="${item.completed}"
                 @change="${this.toggleItem}"

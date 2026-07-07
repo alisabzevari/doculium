@@ -184,7 +184,7 @@ export class ScanPage extends LitElement {
             </div>
           ` : html`
             <div class="bg-base-200 flex flex-col flex-1 min-h-0">
-              <div class="flex items-center justify-between px-4 py-3 border-b border-base-300 shrink-0">
+              <div class="flex items-center justify-between px-4 py-3 border-b border-base-300 shrink-0 flex-wrap gap-2">
                 <div class="flex items-center gap-3">
                   ${this.analyzing ? '' : html`
                     <input type="checkbox" class="checkbox checkbox-sm"

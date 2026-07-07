@@ -24,6 +24,9 @@ search-bar {
   width: 240px;
   transition: transform 0.2s;
   z-index: 50;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 @media (max-width: 768px) {

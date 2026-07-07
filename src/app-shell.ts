@@ -86,7 +86,7 @@ export class AppShell extends LitElement {
             </h1>
           </div>
 
-        <nav class="flex-1 p-2 space-y-1">
+        <nav class="flex-1 p-2 space-y-1 overflow-y-auto min-h-0">
           <button
             class="w-full btn btn-ghost justify-start gap-3 ${this._isActive(
               "/",
@@ -151,7 +151,7 @@ export class AppShell extends LitElement {
           class="md:hidden sticky top-0 z-30 bg-base-200 border-b border-base-300 p-3 flex items-center gap-3"
         >
           <button
-            class="tooltip btn btn-square btn-sm btn-ghost"
+            class="tooltip btn btn-square btn-ghost"
             data-tip="Menu"
             @click=${() => (this.sidebarOpen = !this.sidebarOpen)}
           >

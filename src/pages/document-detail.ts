@@ -86,7 +86,7 @@ export class DocumentDetail extends LitElement {
      </button>
 
      <div class="bg-base-200 p-4">
-      <div class="flex items-start justify-between">
+      <div class="flex items-start justify-between flex-wrap gap-2">
        <div>
         <h1 class="text-xl font-bold">${d.originalName}</h1>
         <p class="text-sm opacity-50 mt-1">${d.originalPath}</p>

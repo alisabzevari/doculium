@@ -171,7 +171,7 @@ export class SettingsPage extends LitElement {
       <div class="p-6 max-w-2xl mx-auto space-y-6">
         <h1 class="text-2xl font-bold">Settings</h1>
 
-        <div role="tablist" class="tabs tabs-box bg-base-200">
+        <div role="tablist" class="tabs tabs-box bg-base-200 overflow-x-auto">
            <button role="tab" class="tab ${this.activeTab === 'ai' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'ai'}>
             <icon-svg name="bot" size="16"></icon-svg>
             AI Provider
@@ -288,7 +288,7 @@ export class SettingsPage extends LitElement {
               </div>
             `}
 
-            <div class="flex gap-2">
+            <div class="flex gap-2 flex-wrap">
               <button class="tooltip btn btn-primary" data-tip="Save settings" @click=${this.save}>Save</button>
               <button class="tooltip btn btn-ghost" data-tip="Test AI connection" @click=${this.testAI}>Test Connection</button>
             </div>
@@ -377,7 +377,7 @@ export class SettingsPage extends LitElement {
               <input class="input w-full" type="password" .value=${this.settings.tursoToken}
                 @change=${(e: Event) => { const v = (e.target as HTMLInputElement).value; this.settings = this.settings ? { ...this.settings, tursoToken: v } : null; }} />
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2 flex-wrap">
               <button class="tooltip btn btn-primary" data-tip="Save settings" @click=${this.save}>Save</button>
               <button class="tooltip btn btn-ghost" data-tip="Test Turso connection" @click=${this.testTurso}>Test Connection</button>
               <button class="btn btn-ghost" @click=${this.sync}>Sync Now</button>
