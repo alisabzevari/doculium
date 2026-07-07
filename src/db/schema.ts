@@ -95,11 +95,11 @@ export const db = new DoculiumDB();
 
 export async function getDefaultCategories(): Promise<Category[]> {
   return [
-    { id: 'cat-home', name: 'Home', icon: '🏠', color: '#3b82f6', isBuiltIn: true, order: 0, createdAt: new Date().toISOString() },
-    { id: 'cat-education', name: 'Education', icon: '🎓', color: '#8b5cf6', isBuiltIn: true, order: 1, createdAt: new Date().toISOString() },
-    { id: 'cat-car', name: 'Car', icon: '🚗', color: '#ef4444', isBuiltIn: true, order: 2, createdAt: new Date().toISOString() },
-    { id: 'cat-medical', name: 'Medical', icon: '🏥', color: '#10b981', isBuiltIn: true, order: 3, createdAt: new Date().toISOString() },
-    { id: 'cat-misc', name: 'Misc', icon: '📋', color: '#6b7280', isBuiltIn: true, order: 4, createdAt: new Date().toISOString() },
-    { id: 'cat-work', name: 'Work', icon: '💼', color: '#f59e0b', isBuiltIn: true, order: 5, createdAt: new Date().toISOString() },
+    { id: 'cat-home', name: 'Home', icon: '🏠', color: 'primary', isBuiltIn: true, order: 0, createdAt: new Date().toISOString() },
+    { id: 'cat-education', name: 'Education', icon: '🎓', color: 'secondary', isBuiltIn: true, order: 1, createdAt: new Date().toISOString() },
+    { id: 'cat-car', name: 'Car', icon: '🚗', color: 'error', isBuiltIn: true, order: 2, createdAt: new Date().toISOString() },
+    { id: 'cat-medical', name: 'Medical', icon: '🏥', color: 'success', isBuiltIn: true, order: 3, createdAt: new Date().toISOString() },
+    { id: 'cat-misc', name: 'Misc', icon: '📋', color: 'ghost', isBuiltIn: true, order: 4, createdAt: new Date().toISOString() },
+    { id: 'cat-work', name: 'Work', icon: '💼', color: 'warning', isBuiltIn: true, order: 5, createdAt: new Date().toISOString() },
   ];
 }

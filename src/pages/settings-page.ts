@@ -76,7 +76,7 @@ export class SettingsPage extends LitElement {
       id: uuid(),
       name,
       icon: '📄',
-      color: '#6b7280',
+      color: 'ghost',
       isBuiltIn: false,
       order: this.categories.length,
       createdAt: new Date().toISOString(),
