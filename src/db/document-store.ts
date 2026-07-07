@@ -7,7 +7,7 @@ import {
 } from "./schema.ts";
 
 export async function addDocument(doc: Document): Promise<string> {
-  await db.documents.add(doc);
+  await db.documents.add({ ...doc, updatedAt: doc.updatedAt || new Date().toISOString() });
   return doc.id;
 }
 
@@ -59,7 +59,7 @@ export async function searchDocuments(query: string): Promise<Document[]> {
 }
 
 export async function addActionItem(item: ActionItem): Promise<string> {
-  await db.actionItems.add(item);
+  await db.actionItems.add({ ...item, updatedAt: item.updatedAt || new Date().toISOString() });
   return item.id;
 }
 
@@ -67,7 +67,10 @@ export async function updateActionItem(
   id: string,
   changes: Partial<ActionItem>,
 ): Promise<void> {
-  await db.actionItems.update(id, changes);
+  await db.actionItems.update(id, {
+    ...changes,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export async function getActionItemsByDocument(
@@ -100,15 +103,53 @@ export async function getFailedDocuments(): Promise<Document[]> {
 }
 
 export async function deleteDocument(id: string): Promise<void> {
+  const now = new Date().toISOString();
+  await db.pendingDeletions.add({ id: `doc-${id}`, tableName: 'documents', recordId: id, createdAt: now });
+
+  // cascade: collect related record IDs before deleting
+  const relatedItems = await db.actionItems.where('documentId').equals(id).toArray();
+  const relatedJobs = await db.analysisJobs.where('documentId').equals(id).toArray();
+  const relatedChat = await db.chatMessages.where('documentId').equals(id).toArray();
+
+  for (const item of relatedItems) {
+    await db.pendingDeletions.add({ id: `ai-${item.id}`, tableName: 'action_items', recordId: item.id, createdAt: now });
+  }
+  for (const job of relatedJobs) {
+    await db.pendingDeletions.add({ id: `aj-${job.id}`, tableName: 'analysis_jobs', recordId: job.id, createdAt: now });
+  }
+  for (const msg of relatedChat) {
+    await db.pendingDeletions.add({ id: `cm-${msg.id}`, tableName: 'chat_messages', recordId: msg.id, createdAt: now });
+  }
+
   await db.documents.delete(id);
-  await db.actionItems.where("documentId").equals(id).delete();
-  await db.analysisJobs.where("documentId").equals(id).delete();
-  await db.chatMessages.where("documentId").equals(id).delete();
+  await db.actionItems.where('documentId').equals(id).delete();
+  await db.analysisJobs.where('documentId').equals(id).delete();
+  await db.chatMessages.where('documentId').equals(id).delete();
 }
 
 export async function deleteAllDocuments(): Promise<number> {
   const all = await db.documents.toArray();
   const ids = all.map(d => d.id);
+  const now = new Date().toISOString();
+
+  for (const id of ids) {
+    await db.pendingDeletions.add({ id: `doc-${id}`, tableName: 'documents', recordId: id, createdAt: now });
+  }
+
+  // cascade: record all related records as pending deletions
+  const allItems = await db.actionItems.toArray();
+  for (const item of allItems) {
+    await db.pendingDeletions.add({ id: `ai-${item.id}`, tableName: 'action_items', recordId: item.id, createdAt: now });
+  }
+  const allJobs = await db.analysisJobs.toArray();
+  for (const job of allJobs) {
+    await db.pendingDeletions.add({ id: `aj-${job.id}`, tableName: 'analysis_jobs', recordId: job.id, createdAt: now });
+  }
+  const allChat = await db.chatMessages.toArray();
+  for (const msg of allChat) {
+    await db.pendingDeletions.add({ id: `cm-${msg.id}`, tableName: 'chat_messages', recordId: msg.id, createdAt: now });
+  }
+
   await db.documents.clear();
   await db.actionItems.clear();
   await db.analysisJobs.clear();
@@ -117,7 +158,7 @@ export async function deleteAllDocuments(): Promise<number> {
 }
 
 export async function addAnalysisJob(job: AnalysisJob): Promise<string> {
-  await db.analysisJobs.add(job);
+  await db.analysisJobs.add({ ...job, updatedAt: job.updatedAt || new Date().toISOString() });
   return job.id;
 }
 
@@ -125,7 +166,10 @@ export async function updateAnalysisJob(
   id: string,
   changes: Partial<AnalysisJob>,
 ): Promise<void> {
-  await db.analysisJobs.update(id, changes);
+  await db.analysisJobs.update(id, {
+    ...changes,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export async function getPendingAnalysisJobs(): Promise<AnalysisJob[]> {
@@ -154,7 +198,7 @@ export async function getChatMessages(docId: string): Promise<ChatMessage[]> {
 }
 
 export async function addChatMessage(msg: ChatMessage): Promise<string> {
-  await db.chatMessages.add(msg);
+  await db.chatMessages.add({ ...msg, updatedAt: msg.updatedAt || new Date().toISOString() });
   return msg.id;
 }
 

@@ -69,7 +69,7 @@ export class SettingsPage extends LitElement {
     if (err) {
       this.syncStatus = `❌ ${err}`;
     } else {
-      this.syncStatus = `✅ Synced! Pushed: ${result.pushed}`;
+      this.syncStatus = `✅ Synced! Pushed: ${result.pushed}, Pulled: ${result.pulled}, Deleted: ${result.deleted}`;
     }
   }
 
@@ -84,6 +84,7 @@ export class SettingsPage extends LitElement {
       isBuiltIn: false,
       order: this.categories.length,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     await db.categories.add(cat);
     this.categories = [...this.categories, cat];

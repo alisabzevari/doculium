@@ -112,6 +112,7 @@ export class ScanPage extends LitElement {
         startedAt: null,
         completedAt: null,
         createdAt: now,
+        updatedAt: now,
       });
     }
 

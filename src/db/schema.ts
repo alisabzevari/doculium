@@ -36,6 +36,7 @@ export interface ActionItem {
   completed: boolean;
   completedAt: string | null;
   createdAt: string;
+  updatedAt: string;
   dueDate: string | null;
 }
 
@@ -47,6 +48,7 @@ export interface Category {
   isBuiltIn: boolean;
   order: number;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface AnalysisJob {
@@ -61,6 +63,7 @@ export interface AnalysisJob {
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface ChatMessage {
@@ -68,6 +71,14 @@ export interface ChatMessage {
   documentId: string;
   role: 'user' | 'assistant';
   content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PendingDeletion {
+  id: string;
+  tableName: string;
+  recordId: string;
   createdAt: string;
 }
 
@@ -77,16 +88,24 @@ export class DoculiumDB extends Dexie {
   categories!: Table<Category, string>;
   analysisJobs!: Table<AnalysisJob, string>;
   chatMessages!: Table<ChatMessage, string>;
+  pendingDeletions!: Table<PendingDeletion, string>;
 
   constructor() {
     super('doculium');
 
-    this.version(2).stores({
+    this.version(4).stores({
       documents: 'id, fileHash, category, year, urgency, status, createdAt, originalName',
       actionItems: 'id, documentId, urgency, completed, createdAt',
       categories: 'id, name, isBuiltIn, order',
       analysisJobs: 'id, documentId, status, createdAt',
       chatMessages: 'id, documentId, createdAt',
+      pendingDeletions: 'id, tableName, createdAt',
+    }).upgrade(async tx => {
+      const now = new Date().toISOString();
+      await tx.table('actionItems').toCollection().modify(item => { item.updatedAt = now; });
+      await tx.table('categories').toCollection().modify(item => { item.updatedAt = now; });
+      await tx.table('analysisJobs').toCollection().modify(item => { item.updatedAt = now; });
+      await tx.table('chatMessages').toCollection().modify(item => { item.updatedAt = now; });
     });
   }
 }
@@ -94,12 +113,13 @@ export class DoculiumDB extends Dexie {
 export const db = new DoculiumDB();
 
 export async function getDefaultCategories(): Promise<Category[]> {
+  const now = new Date().toISOString();
   return [
-    { id: 'cat-home', name: 'Home', icon: '🏠', color: 'primary', isBuiltIn: true, order: 0, createdAt: new Date().toISOString() },
-    { id: 'cat-education', name: 'Education', icon: '🎓', color: 'secondary', isBuiltIn: true, order: 1, createdAt: new Date().toISOString() },
-    { id: 'cat-car', name: 'Car', icon: '🚗', color: 'error', isBuiltIn: true, order: 2, createdAt: new Date().toISOString() },
-    { id: 'cat-medical', name: 'Medical', icon: '🏥', color: 'success', isBuiltIn: true, order: 3, createdAt: new Date().toISOString() },
-    { id: 'cat-misc', name: 'Misc', icon: '📋', color: 'ghost', isBuiltIn: true, order: 4, createdAt: new Date().toISOString() },
-    { id: 'cat-work', name: 'Work', icon: '💼', color: 'warning', isBuiltIn: true, order: 5, createdAt: new Date().toISOString() },
+    { id: 'cat-home', name: 'Home', icon: '🏠', color: 'primary', isBuiltIn: true, order: 0, createdAt: now, updatedAt: now },
+    { id: 'cat-education', name: 'Education', icon: '🎓', color: 'secondary', isBuiltIn: true, order: 1, createdAt: now, updatedAt: now },
+    { id: 'cat-car', name: 'Car', icon: '🚗', color: 'error', isBuiltIn: true, order: 2, createdAt: now, updatedAt: now },
+    { id: 'cat-medical', name: 'Medical', icon: '🏥', color: 'success', isBuiltIn: true, order: 3, createdAt: now, updatedAt: now },
+    { id: 'cat-misc', name: 'Misc', icon: '📋', color: 'ghost', isBuiltIn: true, order: 4, createdAt: now, updatedAt: now },
+    { id: 'cat-work', name: 'Work', icon: '💼', color: 'warning', isBuiltIn: true, order: 5, createdAt: now, updatedAt: now },
   ];
 }

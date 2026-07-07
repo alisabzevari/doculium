@@ -83,6 +83,7 @@ export async function processQueue(
       });
 
       for (const itemText of result.actionItems) {
+        const now = new Date().toISOString();
         await addActionItem({
           id: uuid(),
           documentId: doc.id,
@@ -90,7 +91,8 @@ export async function processQueue(
           urgency: result.urgency,
           completed: false,
           completedAt: null,
-          createdAt: new Date().toISOString(),
+          createdAt: now,
+          updatedAt: now,
           dueDate: null,
         });
       }

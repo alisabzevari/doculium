@@ -37,12 +37,14 @@ export class DocumentChat extends LitElement {
 
   private async _save(role: 'user' | 'assistant', content: string) {
     if (!this.documentId) return;
+    const now = new Date().toISOString();
     await addChatMessage({
       id: uuid(),
       documentId: this.documentId,
       role,
       content,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     });
   }
 
