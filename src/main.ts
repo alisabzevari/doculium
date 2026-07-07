@@ -12,3 +12,33 @@ import './components/document-viewer.ts';
 import './components/confirm-dialog.ts';
 import './components/toast-notification.ts';
 import './components/document-chat.ts';
+import { decodeShareConfig } from './utils/share-config.ts';
+import { saveSettings, getSettings } from './db/config-store.ts';
+
+async function handleSharedConfig() {
+  const params = new URLSearchParams(window.location.search);
+  const encoded = params.get('config');
+  if (!encoded) return;
+
+  const config = decodeShareConfig(encoded);
+  if (!config) return;
+
+  const settings = await getSettings();
+  settings.aiProvider = {
+    type: config.aiType as any,
+    baseUrl: config.aiBaseUrl,
+    apiKey: config.aiApiKey,
+    model: config.aiModel,
+  };
+  settings.tursoUrl = config.tursoUrl;
+  settings.tursoToken = config.tursoToken;
+
+  await saveSettings(settings);
+
+  // clean URL
+  const url = new URL(window.location.href);
+  url.searchParams.delete('config');
+  window.history.replaceState({}, '', url.toString());
+}
+
+handleSharedConfig();

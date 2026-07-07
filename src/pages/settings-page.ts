@@ -9,6 +9,8 @@ import type { LocalProvider } from '../ai/local.ts';
 import { v4 as uuid } from 'uuid';
 import { pickAndSaveDirectory, getDirectoryName } from '../utils/handle-store.ts';
 import { type ToastNotification } from '../components/toast-notification.ts';
+import QRCode from 'qrcode';
+import { buildShareUrl } from '../utils/share-config.ts';
 
 @customElement('settings-page')
 export class SettingsPage extends LitElement {
@@ -23,6 +25,7 @@ export class SettingsPage extends LitElement {
   @state() private downloadProgress = '';
   @state() private downloadPercent = 0;
   @state() private downloadStatus: '' | 'downloading' | 'done' | 'error' = '';
+  @state() private shareQrDataUrl = '';
   @query('toast-notification') toast!: ToastNotification;
 
   async connectedCallback() {
@@ -143,6 +146,24 @@ export class SettingsPage extends LitElement {
     this.toast?.show('Model cache cleared');
   }
 
+  private async _generateShareQr() {
+    if (!this.settings) return;
+    const config = {
+      aiType: this.settings.aiProvider.type,
+      aiBaseUrl: this.settings.aiProvider.baseUrl,
+      aiApiKey: this.settings.aiProvider.apiKey,
+      aiModel: this.settings.aiProvider.model,
+      tursoUrl: this.settings.tursoUrl,
+      tursoToken: this.settings.tursoToken,
+    };
+    const url = buildShareUrl(config);
+    try {
+      this.shareQrDataUrl = await QRCode.toDataURL(url, { width: 256, margin: 2 });
+    } catch {
+      this.toast?.show('Failed to generate QR code');
+    }
+  }
+
   render() {
     if (!this.settings) return html`<div class="p-6"><span class="loading loading-spinner"></span></div>`;
 
@@ -167,10 +188,14 @@ export class SettingsPage extends LitElement {
            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
            Storage
           </button>
-          <button role="tab" class="tab ${this.activeTab === 'theme' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'theme'}>
-           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-           Theme
-          </button>
+           <button role="tab" class="tab ${this.activeTab === 'theme' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'theme'}>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            Theme
+           </button>
+           <button role="tab" class="tab ${this.activeTab === 'share' ? 'tab-active' : ''}" @click=${() => { this.activeTab = 'share'; this._generateShareQr(); }}>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98m0-10.98l-6.83 3.98"/></svg>
+            Share
+           </button>
         </div>
 
         ${this.activeTab === 'ai' ? html`
@@ -402,6 +427,24 @@ export class SettingsPage extends LitElement {
                 </optgroup>
               </select>
             </div>
+          </div>
+        ` : ''}
+
+        ${this.activeTab === 'share' ? html`
+          <div class="bg-base-200 p-4 space-y-4">
+            <h3 class="font-semibold">Share Setup</h3>
+            <p class="text-sm opacity-70">Generate a QR code that your partner can scan to install the app with the same AI and sync settings.</p>
+            ${this.shareQrDataUrl ? html`
+              <div class="flex flex-col items-center gap-3">
+                <img src=${this.shareQrDataUrl} alt="Setup QR code" class="rounded-box" />
+                <p class="text-xs opacity-50">Scan with your phone to install and auto-configure</p>
+              </div>
+            ` : html`
+              <button class="btn btn-primary" @click=${this._generateShareQr}>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98m0-10.98l-6.83 3.98"/></svg>
+                Generate QR Code
+              </button>
+            `}
           </div>
         ` : ''}
       </div>

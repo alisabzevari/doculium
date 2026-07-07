@@ -5,6 +5,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 export default defineConfig({
+  base: '/doculium/',
   optimizeDeps: {
     exclude: ['@mlc-ai/web-llm'],
   },
@@ -61,7 +62,8 @@ export default defineConfig({
     },
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+        registerType: 'autoUpdate',
+      scope: '/doculium/',
       includeAssets: ['icons/*.svg'],
       manifest: {
         name: 'Doculium',
@@ -71,6 +73,8 @@ export default defineConfig({
         background_color: '#1d232c',
         display: 'standalone',
         orientation: 'portrait-primary',
+        scope: '/doculium/',
+        start_url: '/doculium/',
         icons: [
           {
             src: 'icons/icon-192.svg',
