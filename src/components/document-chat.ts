@@ -271,9 +271,7 @@ export class DocumentChat extends LitElement {
               placeholder="Ask about this document..."
               ?disabled=${this.loading} />
              <button class="tooltip btn join-item btn-primary btn-square" data-tip="Send" ?disabled=${this.loading || !this.input.trim()} @click=${this._send}>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
-              </svg>
+              <icon-svg name="send" size="16"></icon-svg>
             </button>
           </div>
         </div>

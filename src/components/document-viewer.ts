@@ -161,15 +161,15 @@ export class DocumentViewer extends LitElement {
         <div class="flex items-center justify-between px-4 py-2 border-b border-base-300">
           <div class="flex items-center gap-1">
              <button class="tooltip btn btn-ghost btn-xs" data-tip="Zoom out" @click=${this._zoomOut} ?disabled=${this.zoom <= 0.25}>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M8 11h6"/></svg>
+              <icon-svg name="zoomOut" size="16"></icon-svg>
              </button>
              <span class="text-xs tabular-nums w-12 text-center opacity-60">${Math.round(this.zoom * 100)}%</span>
              <button class="tooltip btn btn-ghost btn-xs" data-tip="Zoom in" @click=${this._zoomIn} ?disabled=${this.zoom >= 5}>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M11 8v6m-3-3h6"/></svg>
+              <icon-svg name="zoomIn" size="16"></icon-svg>
              </button>
              <div class="w-px h-4 bg-base-300 mx-1"></div>
              <button class="tooltip btn btn-ghost btn-xs ${this.fitMode === 'width' ? 'btn-active' : ''}" data-tip="Fit width" @click=${this._fitWidth}>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M8 8l-4 4 4 4M16 8l4 4-4 4"/></svg>
+              <icon-svg name="maximize" size="16"></icon-svg>
             </button>
           </div>
           <div class="flex items-center gap-1">

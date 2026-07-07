@@ -2,11 +2,11 @@ import { LitElement, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import {
-  Menu,
-  LayoutDashboard,
-  ScanSearch,
-  Library,
-  Settings,
+  Menu, LayoutDashboard, ScanSearch, Library, Settings,
+  Trash2, ClipboardCheck, FileText, MessageSquare, Send,
+  Bot, PenSquare, Columns3, Database, Sun, Share2, Folder,
+  Check, AlertCircle, RefreshCw, Image, File,
+  CheckCircle, Clock, AlertTriangle, ZoomOut, ZoomIn, Maximize2, Search,
 } from 'lucide';
 
 type IconData = [string, Record<string, string>][];
@@ -17,6 +17,30 @@ const ICONS: Record<string, IconData> = {
   scan: ScanSearch as IconData,
   library: Library as IconData,
   settings: Settings as IconData,
+  trash: Trash2 as IconData,
+  clipboardCheck: ClipboardCheck as IconData,
+  fileText: FileText as IconData,
+  chatBubble: MessageSquare as IconData,
+  send: Send as IconData,
+  bot: Bot as IconData,
+  edit: PenSquare as IconData,
+  columns: Columns3 as IconData,
+  database: Database as IconData,
+  sun: Sun as IconData,
+  share: Share2 as IconData,
+  folder: Folder as IconData,
+  check: Check as IconData,
+  alertCircle: AlertCircle as IconData,
+  refresh: RefreshCw as IconData,
+  image: Image as IconData,
+  file: File as IconData,
+  checkCircle: CheckCircle as IconData,
+  clock: Clock as IconData,
+  alertTriangle: AlertTriangle as IconData,
+  zoomOut: ZoomOut as IconData,
+  zoomIn: ZoomIn as IconData,
+  maximize: Maximize2 as IconData,
+  search: Search as IconData,
 };
 
 function lucideSvg(data: IconData, size: number): string {

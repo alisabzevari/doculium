@@ -172,30 +172,30 @@ export class SettingsPage extends LitElement {
         <h1 class="text-2xl font-bold">Settings</h1>
 
         <div role="tablist" class="tabs tabs-box bg-base-200">
-          <button role="tab" class="tab ${this.activeTab === 'ai' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'ai'}>
-           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M17 10.4A7 7 0 0 1 5 14"/><path d="M12 14v8"/><path d="M8 18h8"/></svg>
-           AI Provider
-          </button>
-          <button role="tab" class="tab ${this.activeTab === 'prompts' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'prompts'}>
-           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-           AI Prompts
-          </button>
-          <button role="tab" class="tab ${this.activeTab === 'categories' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'categories'}>
-           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-           Categories
-          </button>
-          <button role="tab" class="tab ${this.activeTab === 'storage' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'storage'}>
-           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-           Storage
-          </button>
-           <button role="tab" class="tab ${this.activeTab === 'theme' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'theme'}>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-            Theme
+           <button role="tab" class="tab ${this.activeTab === 'ai' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'ai'}>
+            <icon-svg name="bot" size="16"></icon-svg>
+            AI Provider
            </button>
-           <button role="tab" class="tab ${this.activeTab === 'share' ? 'tab-active' : ''}" @click=${() => { this.activeTab = 'share'; this._generateShareQr(); }}>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98m0-10.98l-6.83 3.98"/></svg>
-            Share
+           <button role="tab" class="tab ${this.activeTab === 'prompts' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'prompts'}>
+            <icon-svg name="edit" size="16"></icon-svg>
+            AI Prompts
            </button>
+           <button role="tab" class="tab ${this.activeTab === 'categories' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'categories'}>
+            <icon-svg name="columns" size="16"></icon-svg>
+            Categories
+           </button>
+           <button role="tab" class="tab ${this.activeTab === 'storage' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'storage'}>
+            <icon-svg name="database" size="16"></icon-svg>
+            Storage
+           </button>
+            <button role="tab" class="tab ${this.activeTab === 'theme' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'theme'}>
+             <icon-svg name="sun" size="16"></icon-svg>
+             Theme
+            </button>
+            <button role="tab" class="tab ${this.activeTab === 'share' ? 'tab-active' : ''}" @click=${() => { this.activeTab = 'share'; this._generateShareQr(); }}>
+             <icon-svg name="share" size="16"></icon-svg>
+             Share
+            </button>
         </div>
 
         ${this.activeTab === 'ai' ? html`
@@ -354,9 +354,7 @@ export class SettingsPage extends LitElement {
               <label class="label">Document Folder</label>
               <div class="flex items-center gap-3">
                 <button class="tooltip btn btn-primary" data-tip="Select document folder" @click=${this._selectFolder}>
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-                  </svg>
+                  <icon-svg name="folder" size="16"></icon-svg>
                   ${this.folderName ? 'Change Folder' : 'Select Folder'}
                 </button>
                 ${this.folderName ? html`
@@ -441,7 +439,7 @@ export class SettingsPage extends LitElement {
               </div>
             ` : html`
               <button class="btn btn-primary" @click=${this._generateShareQr}>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98m0-10.98l-6.83 3.98"/></svg>
+                <icon-svg name="share" size="16"></icon-svg>
                 Generate QR Code
               </button>
             `}

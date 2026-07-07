@@ -82,7 +82,7 @@ export class LibraryPage extends LitElement {
           <h1 class="text-2xl font-bold">Library</h1>
           ${this.documents.length > 0 ? html`
             <button class="btn btn-error btn-sm" @click=${this._deleteAll}>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              <icon-svg name="trash" size="16"></icon-svg>
               Delete All
             </button>
           ` : ''}
