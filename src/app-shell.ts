@@ -13,16 +13,14 @@ export class AppShell extends LitElement {
   @state() private sidebarOpen = false;
   @state() private urgentCount = 0;
   @state() private currentPath = window.location.pathname;
+  private _base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
   private _router = new Router(this, [
-    { path: "/", render: () => html`<dashboard-page></dashboard-page>` },
-    { path: "/scan", render: () => html`<scan-page></scan-page>` },
-    { path: "/library", render: () => html`<library-page></library-page>` },
-    {
-      path: "/library/:id",
-      render: () => html`<document-detail></document-detail>`,
-    },
-    { path: "/settings", render: () => html`<settings-page></settings-page>` },
+    { path: this._base + '/', render: () => html`<dashboard-page></dashboard-page>` },
+    { path: this._base + '/scan', render: () => html`<scan-page></scan-page>` },
+    { path: this._base + '/library', render: () => html`<library-page></library-page>` },
+    { path: this._base + '/library/:id', render: () => html`<document-detail></document-detail>` },
+    { path: this._base + '/settings', render: () => html`<settings-page></settings-page>` },
   ]);
 
   async connectedCallback() {
@@ -37,9 +35,10 @@ export class AppShell extends LitElement {
 
     window.addEventListener("navigate", ((e: CustomEvent) => {
       const path = e.detail.path;
-      window.history.pushState({}, "", path);
-      this._router.goto(path);
-      this.currentPath = path;
+      const fullPath = this._base + path;
+      window.history.pushState({}, "", fullPath);
+      this._router.goto(fullPath);
+      this.currentPath = fullPath;
       this.sidebarOpen = false;
     }) as EventListener);
 
@@ -55,14 +54,16 @@ export class AppShell extends LitElement {
   }
 
   private _navigate(path: string) {
-    window.history.pushState({}, "", path);
-    this._router.goto(path);
-    this.currentPath = path;
+    const fullPath = this._base + path;
+    window.history.pushState({}, "", fullPath);
+    this._router.goto(fullPath);
+    this.currentPath = fullPath;
     this.sidebarOpen = false;
   }
 
   private _isActive(path: string) {
-    return this.currentPath === path || this.currentPath.startsWith(path + "/");
+    const fullPath = this._base + path;
+    return this.currentPath === fullPath || this.currentPath.startsWith(fullPath + "/");
   }
 
   render() {
