@@ -143,7 +143,7 @@ export class AppShell extends LitElement {
         </div>
       </aside>
 
-      <main class="flex-1 overflow-y-auto bg-base-100">
+      <main class="flex-1 overflow-y-auto overflow-x-hidden bg-base-100">
         <div
           class="md:hidden sticky top-0 z-30 bg-base-200 border-b border-base-300 p-3 flex items-center gap-3"
         >

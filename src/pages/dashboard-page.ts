@@ -53,7 +53,7 @@ export class DashboardPage extends LitElement {
    const incompleteItems = this.actionItems.filter(i => !i.completed);
 
    return html`
-    <div class="p-6 space-y-6">
+    <div class="p-6 space-y-6 max-w-full">
      <div class="flex items-center justify-between flex-wrap gap-2">
       <h1 class="text-2xl font-bold">Dashboard</h1>
       ${!this.scanning ? html`

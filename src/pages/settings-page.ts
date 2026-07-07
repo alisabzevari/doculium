@@ -19,6 +19,7 @@ export class SettingsPage extends LitElement {
   @state() private categories: Category[] = [];
   @state() private connectionStatus = '';
   @state() private syncStatus = '';
+  @state() private syncProgress: { phase: string; current: number; total: number } | null = null;
   @state() private newCategoryName = '';
   @state() private activeTab = 'ai';
   @state() private folderName: string | null = null;
@@ -61,13 +62,18 @@ export class SettingsPage extends LitElement {
   private async sync() {
     if (!this.settings) return;
     this.syncStatus = 'Syncing...';
+    this.syncProgress = null;
     await this.save();
     const ok = await initTurso(this.settings.tursoUrl, this.settings.tursoToken);
     if (!ok) {
       this.syncStatus = `❌ ${getLastError()}`;
       return;
     }
-    const result = await syncDocuments();
+    const result = await syncDocuments((p) => {
+      this.syncProgress = { ...p };
+      this.requestUpdate();
+    });
+    this.syncProgress = null;
     const err = getLastError();
     if (err) {
       this.syncStatus = `❌ ${err}`;
@@ -382,7 +388,13 @@ export class SettingsPage extends LitElement {
               <button class="tooltip btn btn-ghost" data-tip="Test Turso connection" @click=${this.testTurso}>Test Connection</button>
               <button class="btn btn-ghost" @click=${this.sync}>Sync Now</button>
             </div>
-            ${this.syncStatus ? html`<p class="text-sm">${this.syncStatus}</p>` : ''}
+            ${this.syncProgress ? html`
+              <div class="space-y-2">
+                <progress class="progress progress-primary w-full" value="${this.syncProgress.current}" max="${Math.max(this.syncProgress.total, 1)}"></progress>
+                <p class="text-xs opacity-70">${this.syncProgress.phase} (${this.syncProgress.current}/${this.syncProgress.total})</p>
+              </div>
+            ` : ''}
+            ${this.syncStatus && !this.syncProgress ? html`<p class="text-sm">${this.syncStatus}</p>` : ''}
           </div>
         ` : ''}
 
