@@ -215,6 +215,71 @@ export async function syncDocuments(
       (msg: ChatMessage) => [msg.id, msg.documentId, msg.role, msg.content, msg.createdAt, msg.updatedAt],
     );
 
+    // ── RECOVER: re-push local records that were deleted on remote ──
+    async function recoverTable<T extends { id: string }>(
+      table: Table<T, string>,
+      remoteTableName: string,
+      sql: string,
+      argsFn: (row: T) => any[],
+      label: string,
+    ) {
+      const remoteResult = await client!.execute(`SELECT id FROM ${remoteTableName}`);
+      const remoteIds = new Set(remoteResult.rows.map(r => (r as any).id as string));
+      const localIds = await table.toCollection().primaryKeys();
+      const missingIds = localIds.filter(id => !remoteIds.has(id));
+      if (missingIds.length === 0) return;
+      progress(`Recover ${label}`, 0, missingIds.length);
+      const stmts: { sql: string; args: any[] }[] = [];
+      for (let i = 0; i < missingIds.length; i++) {
+        const rec = await table.get(missingIds[i]);
+        if (rec) stmts.push({ sql, args: argsFn(rec) });
+      }
+      if (stmts.length > 0) await executeBatch(stmts);
+      pushed += stmts.length;
+    }
+
+    await recoverTable(db.documents, 'documents',
+      `INSERT OR REPLACE INTO documents
+        (id, originalName, originalPath, storedPath, fileType, fileSize, fileHash,
+         extractedText, summary, audience, urgency, taxRelevant, category, year,
+         month, dateFrom, dateTo, suggestedFilename, tags, confidence,
+         status, error, createdAt, updatedAt, syncedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (doc: Document): any[] => {
+        const tags = JSON.stringify(doc.tags);
+        return [doc.id, doc.originalName, doc.originalPath, doc.storedPath,
+          doc.fileType, doc.fileSize, doc.fileHash, doc.extractedText,
+          doc.summary, doc.audience, doc.urgency, doc.taxRelevant ? 1 : 0,
+          doc.category, doc.year, doc.month, doc.dateFrom, doc.dateTo,
+          doc.suggestedFilename, tags, doc.confidence, doc.status, doc.error,
+          doc.createdAt, doc.updatedAt, syncStartedAt];
+      }, 'documents',
+    );
+
+    await recoverTable(db.actionItems, 'action_items',
+      `INSERT OR REPLACE INTO action_items (id, documentId, text, urgency, completed, completedAt, createdAt, updatedAt, dueDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (item: ActionItem) => [item.id, item.documentId, item.text, item.urgency, item.completed ? 1 : 0, item.completedAt, item.createdAt, item.updatedAt, item.dueDate],
+      'action items',
+    );
+
+    await recoverTable(db.categories, 'categories',
+      `INSERT OR REPLACE INTO categories (id, name, icon, color, isBuiltIn, "order", createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (cat: Category) => [cat.id, cat.name, cat.icon, cat.color, cat.isBuiltIn ? 1 : 0, cat.order, cat.createdAt, cat.updatedAt],
+      'categories',
+    );
+
+    await recoverTable(db.analysisJobs, 'analysis_jobs',
+      `INSERT OR REPLACE INTO analysis_jobs (id, documentId, status, provider, model, promptTokens, completionTokens, error, startedAt, completedAt, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (job: AnalysisJob) => [job.id, job.documentId, job.status, job.provider, job.model, job.promptTokens, job.completionTokens, job.error, job.startedAt, job.completedAt, job.createdAt, job.updatedAt],
+      'analysis jobs',
+    );
+
+    await recoverTable(db.chatMessages, 'chat_messages',
+      `INSERT OR REPLACE INTO chat_messages (id, documentId, role, content, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
+      (msg: ChatMessage) => [msg.id, msg.documentId, msg.role, msg.content, msg.createdAt, msg.updatedAt],
+      'chat messages',
+    );
+
     // ── PULL: remote → local ──
 
     async function pullTable<T extends { id: string; updatedAt: string }>(
