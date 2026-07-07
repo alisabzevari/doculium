@@ -145,7 +145,7 @@ export class ScanPage extends LitElement {
           ${this.newDocs.length === 0 ? html`
             <div class="bg-base-200 p-6 text-center space-y-3">
               <p class="opacity-70">No new files found.</p>
-              <button class="btn btn-ghost btn-sm" @click=${this.startScan}>
+              <button class="tooltip btn btn-ghost btn-sm" data-tip="Rescan folder" @click=${this.startScan}>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/><path d="M16 5l-4 4m0 0l-4-4m4 4V1"/></svg>
                 Scan Again
               </button>
@@ -165,7 +165,7 @@ export class ScanPage extends LitElement {
                   </span>
                 </div>
                 ${!this.analyzing && this.selected.size > 0 ? html`
-                  <button class="btn btn-primary btn-sm" @click=${this.startAnalysis}>
+                  <button class="tooltip btn btn-primary btn-sm" data-tip="Analyze selected files" @click=${this.startAnalysis}>
                     Analyze Selected (${this.selected.size})
                   </button>
                 ` : ''}
@@ -181,6 +181,12 @@ export class ScanPage extends LitElement {
                         @change=${() => this._toggle(d.id)} />
                       <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
+                          ${(() => {
+                            const ext = d.name.split('.').pop()?.toLowerCase() || '';
+                            if (ext === 'pdf') return html`<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
+                            if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return html`<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
+                            return html`<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+                          })()}
                           <p class="text-sm truncate ${status === 'analyzed' ? 'text-success' : ''}">${d.name}</p>
                           ${this._statusIcon(d.id)}
                           ${status === 'analyzed' ? html`<span class="badge badge-soft badge-success badge-xs">Analyzed</span>` : ''}

@@ -121,7 +121,7 @@ export class AppShell extends LitElement {
 
    <main class="flex-1 overflow-y-auto bg-base-100">
     <div class="md:hidden sticky top-0 z-30 bg-base-200 border-b border-base-300 p-3 flex items-center gap-3">
-     <button class="btn btn-square btn-sm btn-ghost" @click=${() => this.sidebarOpen = !this.sidebarOpen}>
+     <button class="tooltip btn btn-square btn-sm btn-ghost" data-tip="Menu" @click=${() => this.sidebarOpen = !this.sidebarOpen}>
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
       </svg>

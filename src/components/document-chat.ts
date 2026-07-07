@@ -118,7 +118,7 @@ export class DocumentChat extends LitElement {
         <div class="flex items-center justify-between px-4 py-2 border-b border-base-300">
           <span class="text-xs font-semibold opacity-60">Document Chat</span>
           ${this.messages.length > 0 ? html`
-            <button class="btn btn-ghost btn-xs text-error" @click=${this._clear}>Clear</button>
+             <button class="tooltip btn btn-ghost btn-xs text-error" data-tip="Clear history" @click=${this._clear}>Clear</button>
           ` : ''}
         </div>
         <div class="chat-scroll flex-1 overflow-y-auto p-4 space-y-4">
@@ -156,7 +156,7 @@ export class DocumentChat extends LitElement {
               @keydown=${this._handleKeydown}
               placeholder="Ask about this document..."
               ?disabled=${this.loading} />
-            <button class="btn join-item btn-primary btn-square" ?disabled=${this.loading || !this.input.trim()} @click=${this._send}>
+             <button class="tooltip btn join-item btn-primary btn-square" data-tip="Send" ?disabled=${this.loading || !this.input.trim()} @click=${this._send}>
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
               </svg>

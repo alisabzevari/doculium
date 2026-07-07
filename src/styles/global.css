@@ -1,12 +1,6 @@
 @import "tailwindcss";
-@plugin "daisyui";
-
-:root,
-[data-theme] {
-  --radius-selector: 0rem;
-  --radius-field: 0rem;
-  --radius-box: 0rem;
-  --border: 2px;
+@plugin "daisyui" {
+  themes: cupcake --default, light, retro, corporate, winter, garden, lofi, pastel, fantasy, lemonade, nord, dark --prefersdark, night, forest, business, coffee, dim, sunset, luxury, dracula, synthwave, black;
 }
 
 app-shell {

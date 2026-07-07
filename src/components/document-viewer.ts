@@ -156,26 +156,26 @@ export class DocumentViewer extends LitElement {
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between px-4 py-2 border-b border-base-300">
           <div class="flex items-center gap-1">
-            <button class="btn btn-ghost btn-xs" title="Zoom out" @click=${this._zoomOut} ?disabled=${this.zoom <= 0.25}>
+             <button class="tooltip btn btn-ghost btn-xs" data-tip="Zoom out" @click=${this._zoomOut} ?disabled=${this.zoom <= 0.25}>
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M8 11h6"/></svg>
-            </button>
-            <span class="text-xs tabular-nums w-12 text-center opacity-60">${Math.round(this.zoom * 100)}%</span>
-            <button class="btn btn-ghost btn-xs" title="Zoom in" @click=${this._zoomIn} ?disabled=${this.zoom >= 5}>
+             </button>
+             <span class="text-xs tabular-nums w-12 text-center opacity-60">${Math.round(this.zoom * 100)}%</span>
+             <button class="tooltip btn btn-ghost btn-xs" data-tip="Zoom in" @click=${this._zoomIn} ?disabled=${this.zoom >= 5}>
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M11 8v6m-3-3h6"/></svg>
-            </button>
-            <div class="w-px h-4 bg-base-300 mx-1"></div>
-            <button class="btn btn-ghost btn-xs ${this.fitMode === 'width' ? 'btn-active' : ''}" title="Fit width" @click=${this._fitWidth}>
+             </button>
+             <div class="w-px h-4 bg-base-300 mx-1"></div>
+             <button class="tooltip btn btn-ghost btn-xs ${this.fitMode === 'width' ? 'btn-active' : ''}" data-tip="Fit width" @click=${this._fitWidth}>
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M8 8l-4 4 4 4M16 8l4 4-4 4"/></svg>
             </button>
           </div>
           <div class="flex items-center gap-1">
-            <button class="btn btn-ghost btn-xs" @click=${this._prev} ?disabled=${this.currentPage <= 1}>
+             <button class="tooltip btn btn-ghost btn-xs" data-tip="Previous" @click=${this._prev} ?disabled=${this.currentPage <= 1}>
               ‹
-            </button>
-            <span class="text-xs tabular-nums opacity-60">${this.currentPage} / ${this.numPages}</span>
-            <button class="btn btn-ghost btn-xs" @click=${this._next} ?disabled=${this.currentPage >= this.numPages}>
+             </button>
+             <span class="text-xs tabular-nums opacity-60">${this.currentPage} / ${this.numPages}</span>
+             <button class="tooltip btn btn-ghost btn-xs" data-tip="Next" @click=${this._next} ?disabled=${this.currentPage >= this.numPages}>
               ›
-            </button>
+             </button>
           </div>
         </div>
         <div class="canvas-container overflow-auto max-w-full bg-base-100 flex justify-center p-2">

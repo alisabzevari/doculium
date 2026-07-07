@@ -105,12 +105,27 @@ export class SettingsPage extends LitElement {
       <div class="p-6 max-w-2xl mx-auto space-y-6">
         <h1 class="text-2xl font-bold">Settings</h1>
 
-        <div role="tablist" class="tabs">
-          <button role="tab" class="tab ${this.activeTab === 'ai' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'ai'}>AI Provider</button>
-          <button role="tab" class="tab ${this.activeTab === 'prompts' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'prompts'}>AI Prompts</button>
-          <button role="tab" class="tab ${this.activeTab === 'categories' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'categories'}>Categories</button>
-          <button role="tab" class="tab ${this.activeTab === 'storage' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'storage'}>Storage</button>
-          <button role="tab" class="tab ${this.activeTab === 'theme' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'theme'}>Theme</button>
+        <div role="tablist" class="tabs tabs-box bg-base-200">
+          <button role="tab" class="tab ${this.activeTab === 'ai' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'ai'}>
+           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M17 10.4A7 7 0 0 1 5 14"/><path d="M12 14v8"/><path d="M8 18h8"/></svg>
+           AI Provider
+          </button>
+          <button role="tab" class="tab ${this.activeTab === 'prompts' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'prompts'}>
+           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+           AI Prompts
+          </button>
+          <button role="tab" class="tab ${this.activeTab === 'categories' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'categories'}>
+           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+           Categories
+          </button>
+          <button role="tab" class="tab ${this.activeTab === 'storage' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'storage'}>
+           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+           Storage
+          </button>
+          <button role="tab" class="tab ${this.activeTab === 'theme' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'theme'}>
+           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+           Theme
+          </button>
         </div>
 
         ${this.activeTab === 'ai' ? html`
@@ -145,8 +160,8 @@ export class SettingsPage extends LitElement {
                 placeholder="gpt-4o" />
             </div>
             <div class="flex gap-2">
-              <button class="btn btn-primary" @click=${this.save}>Save</button>
-              <button class="btn btn-ghost" @click=${this.testAI}>Test Connection</button>
+              <button class="tooltip btn btn-primary" data-tip="Save settings" @click=${this.save}>Save</button>
+              <button class="tooltip btn btn-ghost" data-tip="Test AI connection" @click=${this.testAI}>Test Connection</button>
             </div>
             ${this.connectionStatus ? html`<p class="text-sm">${this.connectionStatus}</p>` : ''}
           </div>
@@ -175,7 +190,7 @@ export class SettingsPage extends LitElement {
                 @change=${(e: Event) => { const v = (e.target as HTMLTextAreaElement).value; this.settings = this.settings ? { ...this.settings, chatPrompt: v } : null; }}>
               </textarea>
             </div>
-            <button class="btn btn-primary" @click=${this.save}>Save Prompts</button>
+            <button class="tooltip btn btn-primary" data-tip="Save prompts" @click=${this.save}>Save Prompts</button>
           </div>
         ` : ''}
 
@@ -209,7 +224,7 @@ export class SettingsPage extends LitElement {
             <div>
               <label class="label">Document Folder</label>
               <div class="flex items-center gap-3">
-                <button class="btn btn-primary" @click=${this._selectFolder}>
+                <button class="tooltip btn btn-primary" data-tip="Select document folder" @click=${this._selectFolder}>
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
                   </svg>
@@ -236,8 +251,8 @@ export class SettingsPage extends LitElement {
                 @change=${(e: Event) => { const v = (e.target as HTMLInputElement).value; this.settings = this.settings ? { ...this.settings, tursoToken: v } : null; }} />
             </div>
             <div class="flex gap-2">
-              <button class="btn btn-primary" @click=${this.save}>Save</button>
-              <button class="btn btn-ghost" @click=${this.testTurso}>Test Connection</button>
+              <button class="tooltip btn btn-primary" data-tip="Save settings" @click=${this.save}>Save</button>
+              <button class="tooltip btn btn-ghost" data-tip="Test Turso connection" @click=${this.testTurso}>Test Connection</button>
               <button class="btn btn-ghost" @click=${this.sync}>Sync Now</button>
             </div>
             ${this.syncStatus ? html`<p class="text-sm">${this.syncStatus}</p>` : ''}
@@ -246,16 +261,42 @@ export class SettingsPage extends LitElement {
 
         ${this.activeTab === 'theme' ? html`
           <div class="bg-base-200 p-4 space-y-4">
-            <div class="flex items-center justify-between">
-              <label class="label">Dark Mode</label>
-              <input type="checkbox" class="toggle" ?checked=${this.settings.theme === 'dark'}
+            <div>
+              <label class="label">Theme</label>
+              <select class="select w-full" .value=${this.settings.theme}
                 @change=${(e: Event) => {
-                  const dark = (e.target as HTMLInputElement).checked;
-                  const theme = dark ? 'dark' : 'cupcake';
+                  const theme = (e.target as HTMLSelectElement).value;
                   document.documentElement.setAttribute('data-theme', theme);
                   this.settings = this.settings ? { ...this.settings, theme } : null;
                   this.save();
-                }} />
+                }}>
+                <optgroup label="Light">
+                  <option value="cupcake">Cupcake</option>
+                  <option value="light">Light</option>
+                  <option value="retro">Retro</option>
+                  <option value="corporate">Corporate</option>
+                  <option value="winter">Winter</option>
+                  <option value="garden">Garden</option>
+                  <option value="lofi">Lo-Fi</option>
+                  <option value="pastel">Pastel</option>
+                  <option value="fantasy">Fantasy</option>
+                  <option value="lemonade">Lemonade</option>
+                  <option value="nord">Nord</option>
+                </optgroup>
+                <optgroup label="Dark">
+                  <option value="dark">Dark</option>
+                  <option value="night">Night</option>
+                  <option value="forest">Forest</option>
+                  <option value="business">Business</option>
+                  <option value="coffee">Coffee</option>
+                  <option value="dim">Dim</option>
+                  <option value="sunset">Sunset</option>
+                  <option value="luxury">Luxury</option>
+                  <option value="dracula">Dracula</option>
+                  <option value="synthwave">Synthwave</option>
+                  <option value="black">Black</option>
+                </optgroup>
+              </select>
             </div>
           </div>
         ` : ''}

@@ -69,8 +69,8 @@ export class DocumentDetail extends LitElement {
    const d = this.doc;
    return html`
     <div class="p-6 max-w-4xl mx-auto space-y-6">
-     <button class="btn btn-ghost btn-sm" @click=${() => window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/library' } }))}>
-      ← Back to Library
+     <button class="tooltip btn btn-ghost btn-sm" data-tip="Back to Library" @click=${() => window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/library' } }))}>
+      Back to Library
      </button>
 
      <div class="bg-base-200 p-4">
@@ -82,7 +82,7 @@ export class DocumentDetail extends LitElement {
        <div class="flex items-center gap-2">
         <span class="badge ${d.urgency === 'critical' ? 'badge-error' : d.urgency === 'high' ? 'badge-warning' : 'badge-ghost'}">${d.urgency}</span>
         ${d.taxRelevant ? html`<span class="badge badge-warning">Tax Relevant</span>` : ''}
-        <button class="btn btn-error btn-sm" @click=${this._deleteDoc}>
+        <button class="tooltip btn btn-error btn-sm" data-tip="Delete document" @click=${this._deleteDoc}>
          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
          </svg>
@@ -93,9 +93,18 @@ export class DocumentDetail extends LitElement {
      </div>
 
       <div role="tablist" class="tabs tabs-box bg-base-200">
-       <button role="tab" class="tab ${this.activeTab === 'summary' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'summary'}>Summary</button>
-       <button role="tab" class="tab ${this.activeTab === 'file' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'file'}>File</button>
-       <button role="tab" class="tab ${this.activeTab === 'chat' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'chat'}>Chat</button>
+        <button role="tab" class="tab ${this.activeTab === 'summary' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'summary'}>
+         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
+         Summary
+        </button>
+        <button role="tab" class="tab ${this.activeTab === 'file' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'file'}>
+         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+         File
+        </button>
+        <button role="tab" class="tab ${this.activeTab === 'chat' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'chat'}>
+         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+         Chat
+        </button>
       </div>
 
      ${this.activeTab === 'summary' ? html`
