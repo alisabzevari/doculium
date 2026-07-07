@@ -121,10 +121,12 @@ export async function syncDocuments(
     onProgress?.({ phase, current, total });
   }
 
-  async function executeBatch(stmts: { sql: string; args: any[] }[]) {
+  async function executeBatch(stmts: { sql: string; args: any[] }[], phase?: string) {
     if (stmts.length === 0) return;
+    if (phase) progress(phase, 0, stmts.length);
     for (let i = 0; i < stmts.length; i += BATCH_SIZE) {
       await client!.batch(stmts.slice(i, i + BATCH_SIZE));
+      if (phase) progress(phase, Math.min(i + BATCH_SIZE, stmts.length), stmts.length);
     }
   }
 
@@ -145,15 +147,13 @@ export async function syncDocuments(
         .filter(pd => tableMap[pd.tableName])
         .map(pd => ({ sql: `DELETE FROM ${tableMap[pd.tableName]} WHERE id = ?`, args: [pd.recordId] }));
       try {
-        await executeBatch(delStmts);
+        await executeBatch(delStmts, 'Delete');
         deleted = delStmts.length;
       } catch { /* ignore */ }
       await db.pendingDeletions.clear();
     }
 
     // ── PUSH: local → remote ──
-    const pushTotal = await db.documents.count() * 2; // rough upper bound
-
     const dirtyDocs = await db.documents
       .filter(d => !d.syncedAt || d.updatedAt > d.syncedAt)
       .toArray();
@@ -176,8 +176,7 @@ export async function syncDocuments(
             doc.createdAt, doc.updatedAt, syncStartedAt],
         };
       });
-      progress('Push', 0, pushTotal);
-      await executeBatch(docStmts);
+      await executeBatch(docStmts, 'Push');
       const ids = dirtyDocs.map(d => d.id);
       await db.documents.where('id').anyOf(ids).modify({ syncedAt: syncStartedAt });
       pushed += dirtyDocs.length;
@@ -187,32 +186,37 @@ export async function syncDocuments(
       table: Table<T, string>,
       sql: string,
       argsFn: (row: T) => any[],
+      label: string,
     ) {
       const dirty = await table.filter(r => r.updatedAt > lastSyncAt).toArray();
       if (dirty.length === 0) return;
       const stmts = dirty.map(row => ({ sql, args: argsFn(row) }));
-      await executeBatch(stmts);
+      await executeBatch(stmts, label);
       pushed += dirty.length;
     }
 
     await pushTable(db.actionItems,
       `INSERT OR REPLACE INTO action_items (id, documentId, text, urgency, completed, completedAt, createdAt, updatedAt, dueDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       (item: ActionItem) => [item.id, item.documentId, item.text, item.urgency, item.completed ? 1 : 0, item.completedAt, item.createdAt, item.updatedAt, item.dueDate],
+      'Push',
     );
 
     await pushTable(db.categories,
       `INSERT OR REPLACE INTO categories (id, name, icon, color, isBuiltIn, "order", createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       (cat: Category) => [cat.id, cat.name, cat.icon, cat.color, cat.isBuiltIn ? 1 : 0, cat.order, cat.createdAt, cat.updatedAt],
+      'Push',
     );
 
     await pushTable(db.analysisJobs,
       `INSERT OR REPLACE INTO analysis_jobs (id, documentId, status, provider, model, promptTokens, completionTokens, error, startedAt, completedAt, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       (job: AnalysisJob) => [job.id, job.documentId, job.status, job.provider, job.model, job.promptTokens, job.completionTokens, job.error, job.startedAt, job.completedAt, job.createdAt, job.updatedAt],
+      'Push',
     );
 
     await pushTable(db.chatMessages,
       `INSERT OR REPLACE INTO chat_messages (id, documentId, role, content, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
       (msg: ChatMessage) => [msg.id, msg.documentId, msg.role, msg.content, msg.createdAt, msg.updatedAt],
+      'Push',
     );
 
     // ── RECOVER: re-push local records that were deleted on remote ──
@@ -228,13 +232,12 @@ export async function syncDocuments(
       const localIds = await table.toCollection().primaryKeys();
       const missingIds = localIds.filter(id => !remoteIds.has(id));
       if (missingIds.length === 0) return;
-      progress(`Recover ${label}`, 0, missingIds.length);
       const stmts: { sql: string; args: any[] }[] = [];
       for (let i = 0; i < missingIds.length; i++) {
         const rec = await table.get(missingIds[i]);
         if (rec) stmts.push({ sql, args: argsFn(rec) });
       }
-      if (stmts.length > 0) await executeBatch(stmts);
+      if (stmts.length > 0) await executeBatch(stmts, `Recover ${label}`);
       pushed += stmts.length;
     }
 
