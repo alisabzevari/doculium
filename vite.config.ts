@@ -66,7 +66,7 @@ export default defineConfig({
     },
     tailwindcss(),
     VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
       scope: '/doculium/',
       includeAssets: ['icons/*.svg', 'logo.png'],
       manifest: {

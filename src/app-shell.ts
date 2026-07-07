@@ -3,6 +3,7 @@ import { customElement, state } from "lit/decorators.js";
 import { Router } from "@lit-labs/router";
 import { getStats } from "./db/document-store.ts";
 import { seedCategories, getSettings } from "./db/config-store.ts";
+import { registerSW } from "virtual:pwa-register";
 
 @customElement("app-shell")
 export class AppShell extends LitElement {
@@ -13,6 +14,8 @@ export class AppShell extends LitElement {
   @state() private sidebarOpen = false;
   @state() private urgentCount = 0;
   @state() private currentPath = window.location.pathname;
+  @state() private updateAvailable = false;
+  private _updateSW: (() => Promise<void>) | null = null;
   private _base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
   private _router = new Router(this, [
@@ -31,6 +34,13 @@ export class AppShell extends LitElement {
     await seedCategories();
 
     this._refreshUrgent();
+
+    this._updateSW = registerSW({
+      onNeedRefresh: () => { this.updateAvailable = true; },
+      onOfflineReady: () => {},
+      onRegistered: () => {},
+      onRegisterError: () => {},
+    });
 
     window.addEventListener("navigate", ((e: CustomEvent) => {
       const path = e.detail.path;
@@ -149,6 +159,16 @@ export class AppShell extends LitElement {
         </div>
         ${this._router.outlet()}
       </main>
+
+      ${this.updateAvailable ? html`
+        <div class="fixed bottom-0 left-0 right-0 z-50 bg-primary text-primary-content p-3 flex items-center justify-between gap-3 shadow-lg">
+          <span class="text-sm font-medium">Update available</span>
+          <div class="flex items-center gap-2">
+            <button class="btn btn-sm btn-ghost text-primary-content" @click=${() => this.updateAvailable = false}>Later</button>
+            <button class="btn btn-sm btn-accent text-accent-content" @click=${() => this._updateSW?.()}>Refresh</button>
+          </div>
+        </div>
+      ` : ''}
     `;
   }
 }
