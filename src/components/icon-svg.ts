@@ -7,6 +7,7 @@ import {
   Bot, PenSquare, Columns3, Database, Sun, Share2, Folder,
   Check, AlertCircle, RefreshCw, Image, File,
   CheckCircle, Clock, AlertTriangle, ZoomOut, ZoomIn, Maximize2, Search,
+  ArrowUp, ArrowDown, Minus,
 } from 'lucide';
 
 type IconData = [string, Record<string, string>][];
@@ -41,6 +42,9 @@ const ICONS: Record<string, IconData> = {
   zoomIn: ZoomIn as IconData,
   maximize: Maximize2 as IconData,
   search: Search as IconData,
+  arrowUp: ArrowUp as IconData,
+  arrowDown: ArrowDown as IconData,
+  minus: Minus as IconData,
 };
 
 function lucideSvg(data: IconData, size: number): string {

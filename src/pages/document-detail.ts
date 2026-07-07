@@ -87,12 +87,14 @@ export class DocumentDetail extends LitElement {
 
      <div class="bg-base-200 p-4">
       <div class="flex items-start justify-between flex-wrap gap-2">
-       <div>
-        <h1 class="text-xl font-bold">${d.originalName}</h1>
-        <p class="text-sm opacity-50 mt-1">${d.originalPath}</p>
+        <div class="min-w-0">
+         <h1 class="text-xl font-bold truncate">${d.originalName}</h1>
+         <p class="text-sm opacity-50 mt-1 truncate">${d.originalPath}</p>
        </div>
        <div class="flex items-center gap-2">
-        <span class="badge ${d.urgency === 'critical' ? 'badge-error' : d.urgency === 'high' ? 'badge-warning' : 'badge-ghost'}">${d.urgency}</span>
+         <span class="badge gap-1 ${d.urgency === 'critical' ? 'badge-error' : d.urgency === 'high' ? 'badge-warning' : 'badge-ghost'}">
+          ${d.urgency === 'critical' ? html`<icon-svg name="alertTriangle" size="12"></icon-svg>` : d.urgency === 'high' ? html`<icon-svg name="arrowUp" size="12"></icon-svg>` : d.urgency === 'medium' ? html`<icon-svg name="minus" size="12"></icon-svg>` : html`<icon-svg name="arrowDown" size="12"></icon-svg>`}
+          ${d.urgency}</span>
         ${d.taxRelevant ? html`<span class="badge badge-warning">Tax Relevant</span>` : ''}
         <button class="tooltip btn btn-error btn-sm" data-tip="Delete document" @click=${this._deleteDoc}>
          <icon-svg name="trash" size="16"></icon-svg>
