@@ -64,7 +64,7 @@ export default defineConfig({
     VitePWA({
         registerType: 'autoUpdate',
       scope: '/doculium/',
-      includeAssets: ['icons/*.svg'],
+      includeAssets: ['icons/*.svg', 'logo.png'],
       manifest: {
         name: 'Doculium',
         short_name: 'Doculium',
@@ -77,14 +77,9 @@ export default defineConfig({
         start_url: '/doculium/',
         icons: [
           {
-            src: 'icons/icon-192.svg',
-            sizes: '192x192',
-            type: 'image/svg+xml',
-          },
-          {
-            src: 'icons/icon-512.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
+            src: 'logo.png',
+            sizes: 'any',
+            type: 'image/png',
           },
         ],
       },
