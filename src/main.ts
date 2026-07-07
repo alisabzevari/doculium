@@ -12,7 +12,6 @@ import './components/document-viewer.ts';
 import './components/confirm-dialog.ts';
 import './components/toast-notification.ts';
 import './components/document-chat.ts';
-import './components/logo-icon.ts';
 import './components/icon-svg.ts';
 import { decodeShareConfig } from './utils/share-config.ts';
 import { saveSettings, getSettings } from './db/config-store.ts';

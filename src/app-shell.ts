@@ -81,7 +81,7 @@ export class AppShell extends LitElement {
       >
           <div class="p-4 border-b border-base-300">
             <h1 class="text-xl font-bold flex items-center gap-2">
-              <logo-icon size="32"></logo-icon>
+              <icon-svg name="logo" size="32"></icon-svg>
               Doculium
             </h1>
           </div>
@@ -157,7 +157,7 @@ export class AppShell extends LitElement {
           >
             <icon-svg name="hamburger" size="20"></icon-svg>
           </button>
-          <logo-icon size="24"></logo-icon>
+          <icon-svg name="logo" size="24"></icon-svg>
           <span class="font-semibold">Doculium</span>
         </div>
         ${this._router.outlet()}
