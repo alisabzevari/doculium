@@ -1,8 +1,14 @@
 import { LitElement, html } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
-import { getDocument, getActionItemsByDocument, deleteDocument } from '../db/document-store.ts';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { marked } from 'marked';
+import { getDocument, getActionItemsByDocument, deleteDocument, addAnalysisJob, updateDocument } from '../db/document-store.ts';
+import { processQueue } from '../services/analysis-queue.ts';
+import { getDirectoryHandle, getDocumentFile, hasDirectoryHandle } from '../utils/handle-store.ts';
 import type { Document, ActionItem } from '../db/schema.ts';
-import { getDocumentFile, hasDirectoryHandle } from '../utils/handle-store.ts';
+import { v4 as uuid } from 'uuid';
+
+marked.setOptions({ breaks: true, gfm: true });
 
 @customElement('document-detail')
 export class DocumentDetail extends LitElement {
@@ -11,8 +17,9 @@ export class DocumentDetail extends LitElement {
  @state() private actionItems: ActionItem[] = [];
  @state() private docFile: File | null = null;
  @state() private fileError = '';
- @state() private activeTab = 'summary';
- @state() private noHandle = false;
+  @state() private activeTab = 'summary';
+  @state() private noHandle = false;
+  @state() private analyzing = false;
 
  @query('confirm-dialog') confirmDialog!: import('../components/confirm-dialog.ts').ConfirmDialog;
 
@@ -67,13 +74,45 @@ export class DocumentDetail extends LitElement {
   }
  }
 
- private async _deleteDoc() {
-  if (!this.doc) return;
-  const ok = await this.confirmDialog.confirm(`Delete "${this.doc.originalName}"? This cannot be undone.`);
-  if (!ok) return;
-  await deleteDocument(this.doc.id);
-  window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/library' } }));
- }
+  private async _deleteDoc() {
+    if (!this.doc) return;
+    const ok = await this.confirmDialog.confirm(`Delete "${this.doc.originalName}"? This cannot be undone.`);
+    if (!ok) return;
+    await deleteDocument(this.doc.id);
+    window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/library' } }));
+  }
+
+  private async _analyze() {
+    if (!this.doc || this.analyzing) return;
+    this.analyzing = true;
+    const now = new Date().toISOString();
+    await addAnalysisJob({
+      id: uuid(),
+      documentId: this.doc.id,
+      status: 'queued',
+      provider: '',
+      model: '',
+      promptTokens: 0,
+      completionTokens: 0,
+      error: null,
+      startedAt: null,
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await updateDocument(this.doc.id, { status: 'pending', error: null });
+    const dirHandle = await getDirectoryHandle();
+    try {
+      await processQueue(dirHandle, [this.doc.id], (p) => {
+        this.requestUpdate();
+      });
+    } catch {}
+    this.doc = (await getDocument(this.doc.id)) ?? null;
+    this.analyzing = false;
+    if (this.doc) {
+      this._loadActionItems();
+    }
+  }
 
   render() {
    if (!this.doc) return html`<div class="p-6"><span class="loading loading-spinner loading-lg"></span></div>`;
@@ -91,26 +130,37 @@ export class DocumentDetail extends LitElement {
          <h1 class="text-xl font-bold truncate" title="${d.originalName}">${d.originalName}</h1>
          <p class="text-sm opacity-50 mt-1 truncate" title="${d.originalPath}">${d.originalPath}</p>
        </div>
-       <div class="flex items-center gap-2">
-         <span class="badge gap-1 ${d.urgency === 'critical' ? 'badge-error' : d.urgency === 'high' ? 'badge-warning' : 'badge-ghost'}">
-          ${d.urgency === 'critical' ? html`<icon-svg name="alertTriangle" size="12"></icon-svg>` : d.urgency === 'high' ? html`<icon-svg name="arrowUp" size="12"></icon-svg>` : d.urgency === 'medium' ? html`<icon-svg name="minus" size="12"></icon-svg>` : html`<icon-svg name="arrowDown" size="12"></icon-svg>`}
-          ${d.urgency}</span>
-        ${d.taxRelevant ? html`<span class="badge badge-warning">Tax Relevant</span>` : ''}
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="badge gap-1 ${d.urgency === 'critical' ? 'badge-error' : d.urgency === 'high' ? 'badge-warning' : 'badge-ghost'}">
+           ${d.urgency === 'critical' ? html`<icon-svg name="alertTriangle" size="12"></icon-svg>` : d.urgency === 'high' ? html`<icon-svg name="arrowUp" size="12"></icon-svg>` : d.urgency === 'medium' ? html`<icon-svg name="minus" size="12"></icon-svg>` : html`<icon-svg name="arrowDown" size="12"></icon-svg>`}
+           ${d.urgency}</span>
+         ${d.taxRelevant ? html`<span class="badge badge-warning">Tax Relevant</span>` : ''}
+         ${(d.status === 'pending' || d.status === 'error') && !this.analyzing ? html`
+          <button class="tooltip btn btn-primary btn-sm" data-tip="Analyze this document" @click=${this._analyze}>
+           <icon-svg name="sparkles" size="16"></icon-svg>
+           Analyze
+          </button>
+         ` : ''}
+         ${this.analyzing ? html`<span class="loading loading-spinner loading-sm"></span>` : ''}
         <button class="tooltip btn btn-error btn-sm" data-tip="Delete document" @click=${this._deleteDoc}>
          <icon-svg name="trash" size="16"></icon-svg>
          Delete
         </button>
-       </div>
+        </div>
       </div>
      </div>
 
-      <div role="tablist" class="tabs tabs-box bg-base-200">
+      <div role="tablist" class="tabs tabs-box bg-base-200 overflow-x-auto">
         <button role="tab" class="tab ${this.activeTab === 'summary' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'summary'}>
          <icon-svg name="clipboardCheck" size="16"></icon-svg>
          Summary
         </button>
-        <button role="tab" class="tab ${this.activeTab === 'file' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'file'}>
+        <button role="tab" class="tab ${this.activeTab === 'text' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'text'}>
          <icon-svg name="fileText" size="16"></icon-svg>
+         Text
+        </button>
+        <button role="tab" class="tab ${this.activeTab === 'file' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'file'}>
+         <icon-svg name="fileSearch" size="16"></icon-svg>
          File
         </button>
         <button role="tab" class="tab ${this.activeTab === 'chat' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'chat'}>
@@ -133,6 +183,15 @@ export class DocumentDetail extends LitElement {
         ${d.status === 'error' ? html`
          <div class="alert alert-error text-sm">
           <span>${d.error || 'Analysis failed'}</span>
+         </div>
+        ` : d.status === 'pending' ? html`
+         <div class="alert alert-info text-sm">
+          <span>Pending analysis</span>
+         </div>
+        ` : d.status === 'analyzing' ? html`
+         <div class="alert alert-info text-sm">
+          <span class="loading loading-spinner loading-xs mr-2"></span>
+          Analyzing...
          </div>
         ` : ''}
 
@@ -168,16 +227,22 @@ export class DocumentDetail extends LitElement {
         </div>
        ` : ''}
 
-       ${d.extractedText ? html`
-        <details class="bg-base-200 p-4">
-         <summary class="cursor-pointer font-semibold text-sm">View Extracted Text (${d.extractedText.length} chars)</summary>
-         <pre class="mt-3 text-xs overflow-auto max-h-96 whitespace-pre-wrap font-mono">${d.extractedText}</pre>
-        </details>
-       ` : ''}
-      </div>
-     ` : ''}
+       </div>
+      ` : ''}
 
-     ${this.activeTab === 'file' ? html`
+      ${this.activeTab === 'text' ? html`
+       <div class="bg-base-200 p-4">
+        ${d.extractedText ? html`
+         <div class="markdown-body text-sm overflow-auto max-h-[70vh] leading-relaxed">
+          ${unsafeHTML(marked.parse(d.extractedText) as string)}
+         </div>
+        ` : html`
+         <p class="text-sm opacity-50 text-center py-8">No extracted text available.</p>
+        `}
+       </div>
+      ` : ''}
+
+      ${this.activeTab === 'file' ? html`
       ${this.noHandle ? html`
        <div class="bg-base-200 p-6 text-center">
         <p class="text-warning font-semibold">No folder selected</p>

@@ -49,10 +49,45 @@ export class ScanPage extends LitElement {
         this.requestUpdate();
       }, this.dirHandle);
       this.newDocs = result.newDocs;
-      this.selected = new Set(result.newDocs.map(d => d.id));
-      result.newDocs.forEach(d => this.fileStatus.set(d.id, 'pending'));
       this.hasScanned = true;
       this.scanning = false;
+
+      const organized = result.newDocs.filter(d => d.organizedPath);
+      if (organized.length > 0) {
+        const now = new Date().toISOString();
+        for (const info of organized) {
+          await addDocument({
+            id: info.id,
+            originalName: info.name,
+            originalPath: info.organizedPath!,
+            storedPath: info.organizedPath!,
+            fileType: info.fileType,
+            fileSize: info.size,
+            fileHash: info.fileHash,
+            extractedText: info.extractedText,
+            summary: '',
+            audience: '',
+            urgency: 'medium',
+            taxRelevant: false,
+            category: '',
+            year: new Date().getFullYear(),
+            month: null,
+            dateFrom: null,
+            dateTo: null,
+            suggestedFilename: null,
+            tags: [],
+            confidence: 0,
+            status: 'pending',
+            error: null,
+            createdAt: now,
+            updatedAt: now,
+            syncedAt: null,
+          });
+        }
+      }
+
+      this.selected = new Set(result.newDocs.map(d => d.id));
+      result.newDocs.forEach(d => this.fileStatus.set(d.id, 'pending'));
     } catch (err: any) {
       this.scanning = false;
       alert(err.message);
@@ -72,33 +107,35 @@ export class ScanPage extends LitElement {
       const info = this.newDocs.find(d => d.id === docId);
       if (!info) continue;
 
-      await addDocument({
-        id: docId,
-        originalName: info.name,
-        originalPath: info.name,
-        storedPath: null,
-        fileType: info.fileType,
-        fileSize: info.size,
-        fileHash: info.fileHash,
-        extractedText: info.extractedText,
-        summary: '',
-        audience: '',
-        urgency: 'medium',
-        taxRelevant: false,
-        category: '',
-        year: new Date().getFullYear(),
-        month: null,
-        dateFrom: null,
-        dateTo: null,
-        suggestedFilename: null,
-        tags: [],
-        confidence: 0,
-        status: 'pending',
-        error: null,
-        createdAt: now,
-        updatedAt: now,
-        syncedAt: null,
-      });
+      if (!info.organizedPath) {
+        await addDocument({
+          id: docId,
+          originalName: info.name,
+          originalPath: info.name,
+          storedPath: null,
+          fileType: info.fileType,
+          fileSize: info.size,
+          fileHash: info.fileHash,
+          extractedText: info.extractedText,
+          summary: '',
+          audience: '',
+          urgency: 'medium',
+          taxRelevant: false,
+          category: '',
+          year: new Date().getFullYear(),
+          month: null,
+          dateFrom: null,
+          dateTo: null,
+          suggestedFilename: null,
+          tags: [],
+          confidence: 0,
+          status: 'pending',
+          error: null,
+          createdAt: now,
+          updatedAt: now,
+          syncedAt: null,
+        });
+      }
 
       await addAnalysisJob({
         id: uuid(),
@@ -153,6 +190,9 @@ export class ScanPage extends LitElement {
   }
 
   render() {
+    const flatCount = this.newDocs.filter(d => !d.organizedPath).length;
+    const organizedCount = this.newDocs.filter(d => d.organizedPath).length;
+
     return html`
       <div class="p-6 flex flex-col h-full gap-6">
         <h1 class="text-2xl font-bold shrink-0">Scan Documents</h1>
@@ -166,74 +206,78 @@ export class ScanPage extends LitElement {
 
         ${this.scanning && this.progress ? html`
           <div class="bg-base-200 p-6 text-center space-y-4">
-            <h3 class="font-semibold">Scanning for new files...</h3>
+            <h3 class="font-semibold">Scanning for files...</h3>
             <progress class="progress progress-primary w-full" value="${this.progress.current}" max="${this.progress.total}"></progress>
-            <p class="text-sm opacity-70">${this.progress.currentFile}</p>
+            <p class="text-sm opacity-70 truncate" title="${this.progress.currentFile}">${this.progress.currentFile}</p>
             <p class="text-xs opacity-50">${this.progress.current}/${this.progress.total}</p>
           </div>
         ` : ''}
 
-        ${this.hasScanned && !this.scanning ? html`
-          ${this.newDocs.length === 0 ? html`
-            <div class="bg-base-200 p-6 text-center space-y-3">
-              <p class="opacity-70">No new files found.</p>
-              <button class="tooltip btn btn-ghost btn-sm" data-tip="Rescan folder" @click=${this.startScan}>
-                <icon-svg name="refresh" size="16"></icon-svg>
-                Scan Again
-              </button>
+        ${this.hasScanned && !this.scanning && this.newDocs.length === 0 ? html`
+          <div class="bg-base-200 p-6 text-center space-y-3">
+            <p class="opacity-70">No new files found.</p>
+            <button class="tooltip btn btn-ghost btn-sm" data-tip="Rescan folder" @click=${this.startScan}>
+              <icon-svg name="refresh" size="16"></icon-svg>
+              Scan Again
+            </button>
+          </div>
+        ` : ''}
+
+        ${this.hasScanned && !this.scanning && this.newDocs.length > 0 ? html`
+          <div class="bg-base-200 flex flex-col flex-1 min-h-0">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-base-300 shrink-0 flex-wrap gap-2">
+              <div class="flex items-center gap-3">
+                ${this.analyzing ? '' : html`
+                  <input type="checkbox" class="checkbox checkbox-sm"
+                    .checked=${this.selected.size > 0 && this.newDocs.filter(d => this.fileStatus.get(d.id) === 'pending').every(d => this.selected.has(d.id))}
+                    .indeterminate=${this.selected.size > 0 && this.selected.size < this.newDocs.filter(d => this.fileStatus.get(d.id) === 'pending').length}
+                    @change=${this._toggleAll} />
+                `}
+                <span class="font-semibold text-sm">
+                  ${this.analyzing ? `Analyzing (${this.analysisDone}/${this.analysisTotal})` : `${this.newDocs.length} file${this.newDocs.length > 1 ? 's' : ''} found`}
+                  ${flatCount > 0 && organizedCount > 0 ? html`<span class="text-xs opacity-50">(${flatCount} root, ${organizedCount} organized)</span>` : ''}
+                </span>
+              </div>
+              ${!this.analyzing && this.selected.size > 0 ? html`
+                <button class="tooltip btn btn-primary btn-sm" data-tip="Analyze selected files" @click=${this.startAnalysis}>
+                  Analyze Selected (${this.selected.size})
+                </button>
+              ` : ''}
             </div>
-          ` : html`
-            <div class="bg-base-200 flex flex-col flex-1 min-h-0">
-              <div class="flex items-center justify-between px-4 py-3 border-b border-base-300 shrink-0 flex-wrap gap-2">
-                <div class="flex items-center gap-3">
-                  ${this.analyzing ? '' : html`
+            <div class="divide-y divide-base-300 flex-1 overflow-y-auto">
+              ${this.newDocs.map(d => {
+                const status = this.fileStatus.get(d.id) || 'pending';
+                const isOrganized = !!d.organizedPath;
+                return html`
+                  <label class="flex items-center gap-3 px-4 py-2.5 hover:bg-base-300 cursor-pointer">
                     <input type="checkbox" class="checkbox checkbox-sm"
-                      .checked=${this.selected.size > 0 && this.newDocs.filter(d => this.fileStatus.get(d.id) === 'pending').every(d => this.selected.has(d.id))}
-                      .indeterminate=${this.selected.size > 0 && this.selected.size < this.newDocs.filter(d => this.fileStatus.get(d.id) === 'pending').length}
-                      @change=${this._toggleAll} />
-                  `}
-                  <span class="font-semibold text-sm">
-                    ${this.analyzing ? `Analyzing (${this.analysisDone}/${this.analysisTotal})` : `${this.newDocs.length} file${this.newDocs.length > 1 ? 's' : ''} found`}
-                  </span>
-                </div>
-                ${!this.analyzing && this.selected.size > 0 ? html`
-                  <button class="tooltip btn btn-primary btn-sm" data-tip="Analyze selected files" @click=${this.startAnalysis}>
-                    Analyze Selected (${this.selected.size})
-                  </button>
-                ` : ''}
-              </div>
-              <div class="divide-y divide-base-300 flex-1 overflow-y-auto">
-                ${this.newDocs.map(d => {
-                  const status = this.fileStatus.get(d.id) || 'pending';
-                  return html`
-                    <label class="flex items-center gap-3 px-4 py-2.5 hover:bg-base-300 cursor-pointer">
-                      <input type="checkbox" class="checkbox checkbox-sm"
-                        .checked=${this.selected.has(d.id)}
-                        .disabled=${status !== 'pending'}
-                        @change=${() => this._toggle(d.id)} />
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                          ${(() => {
-                            const ext = d.name.split('.').pop()?.toLowerCase() || '';
-                            if (ext === 'pdf') return html`<icon-svg name="fileText" size="16" class="shrink-0 text-error"></icon-svg>`;
-                            if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return html`<icon-svg name="image" size="16" class="shrink-0 text-primary"></icon-svg>`;
-                            return html`<icon-svg name="file" size="16" class="shrink-0 opacity-50"></icon-svg>`;
-                          })()}
-                          <p class="text-sm truncate ${status === 'analyzed' ? 'text-success' : ''}" title="${d.name}">${d.name}</p>
-                          ${this._statusIcon(d.id)}
-                          ${status === 'analyzed' ? html`<span class="badge badge-soft badge-success badge-xs shrink-0">Analyzed</span>` : ''}
-                          ${status === 'error' ? html`<span class="badge badge-soft badge-error badge-xs shrink-0">Failed</span>` : ''}
-                          ${status === 'analyzing' ? html`<span class="badge badge-soft badge-info badge-xs shrink-0">Analyzing...</span>` : ''}
-                        </div>
-                        ${status === 'error' ? html`<p class="text-xs text-error mt-0.5 truncate" title="${this.fileErrors.get(d.id) || 'Unknown error'}">${this.fileErrors.get(d.id) || 'Unknown error'}</p>` : ''}
-                        <p class="text-xs opacity-50 mt-0.5">${(d.size / 1024).toFixed(1)} KB</p>
+                      .checked=${this.selected.has(d.id)}
+                      .disabled=${status !== 'pending'}
+                      @change=${() => this._toggle(d.id)} />
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        ${(() => {
+                          const ext = d.name.split('.').pop()?.toLowerCase() || '';
+                          if (ext === 'pdf') return html`<icon-svg name="fileText" size="16" class="shrink-0 text-error"></icon-svg>`;
+                          if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return html`<icon-svg name="image" size="16" class="shrink-0 text-primary"></icon-svg>`;
+                          return html`<icon-svg name="file" size="16" class="shrink-0 opacity-50"></icon-svg>`;
+                        })()}
+                        <p class="text-sm truncate ${status === 'analyzed' ? 'text-success' : ''}" title="${d.name}">${d.name}</p>
+                        ${this._statusIcon(d.id)}
+                        ${status === 'analyzed' ? html`<span class="badge badge-soft badge-success badge-xs shrink-0">Analyzed</span>` : ''}
+                        ${status === 'error' ? html`<span class="badge badge-soft badge-error badge-xs shrink-0">Failed</span>` : ''}
+                        ${status === 'analyzing' ? html`<span class="badge badge-soft badge-info badge-xs shrink-0">Analyzing...</span>` : ''}
+                        ${isOrganized && status === 'pending' ? html`<span class="badge badge-soft badge-accent badge-xs shrink-0" title="Already in year/category folder — only needs AI analysis">Needs Analysis</span>` : ''}
+                        ${!isOrganized && status === 'pending' ? html`<span class="badge badge-soft badge-warning badge-xs shrink-0" title="Needs AI analysis then file will be moved into year/category folder">Needs Organization</span>` : ''}
                       </div>
-                    </label>
-                  `;
-                })}
-              </div>
+                      ${status === 'error' ? html`<p class="text-xs text-error mt-0.5 truncate" title="${this.fileErrors.get(d.id) || 'Unknown error'}">${this.fileErrors.get(d.id) || 'Unknown error'}</p>` : ''}
+                      <p class="text-xs opacity-50 mt-0.5 truncate" title="${isOrganized ? d.organizedPath : d.name}">${isOrganized ? d.organizedPath : `${(d.size / 1024).toFixed(1)} KB`}</p>
+                    </div>
+                  </label>
+                `;
+              })}
             </div>
-          `}
+          </div>
         ` : ''}
       </div>
     `;

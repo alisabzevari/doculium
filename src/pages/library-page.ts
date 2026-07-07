@@ -1,8 +1,11 @@
 import { LitElement, html } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
-import { getAllDocuments, searchDocuments, getDocumentsByCategory, getDocumentsByYear, deleteAllDocuments } from '../db/document-store.ts';
+import { getAllDocuments, searchDocuments, getDocumentsByCategory, getDocumentsByYear, deleteAllDocuments, addAnalysisJob } from '../db/document-store.ts';
+import { processQueue } from '../services/analysis-queue.ts';
+import { getDirectoryHandle } from '../utils/handle-store.ts';
 import type { Document } from '../db/schema.ts';
 import type { ConfirmDialog } from '../components/confirm-dialog.ts';
+import { v4 as uuid } from 'uuid';
 
 @customElement('library-page')
 export class LibraryPage extends LitElement {
@@ -15,9 +18,20 @@ export class LibraryPage extends LitElement {
   @state() private years: number[] = [];
   @state() private categories: string[] = [];
   @query('confirm-dialog') confirmDialog!: ConfirmDialog;
+  @state() private analyzing = false;
 
   async connectedCallback() {
     super.connectedCallback();
+    await this._load();
+    this.addEventListener('document-analyzed', this._onDocAnalyzed);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.removeEventListener('document-analyzed', this._onDocAnalyzed);
+  }
+
+  private async _onDocAnalyzed() {
     await this._load();
   }
 
@@ -57,6 +71,41 @@ export class LibraryPage extends LitElement {
     this.filtered = result;
   }
 
+  private get pendingCount() {
+    return this.documents.filter(d => d.status === 'pending' || d.status === 'error').length;
+  }
+
+  async analyzePending() {
+    const pending = this.documents.filter(d => d.status === 'pending' || d.status === 'error');
+    if (pending.length === 0) return;
+    this.analyzing = true;
+    const now = new Date().toISOString();
+    for (const doc of pending) {
+      await addAnalysisJob({
+        id: uuid(),
+        documentId: doc.id,
+        status: 'queued',
+        provider: '',
+        model: '',
+        promptTokens: 0,
+        completionTokens: 0,
+        error: null,
+        startedAt: null,
+        completedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    const dirHandle = await getDirectoryHandle();
+    try {
+      await processQueue(dirHandle, pending.map(d => d.id), () => {
+        this.requestUpdate();
+      });
+    } catch {}
+    this.analyzing = false;
+    await this._load();
+  }
+
   private async filterByCategory(cat: string) {
     this.selectedCategory = this.selectedCategory === cat ? '' : cat;
     const docs = this.selectedCategory
@@ -78,14 +127,22 @@ export class LibraryPage extends LitElement {
 
     return html`
       <div class="p-6 space-y-6">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between flex-wrap gap-2">
           <h1 class="text-2xl font-bold">Library</h1>
-          ${this.documents.length > 0 ? html`
-            <button class="btn btn-error btn-sm" @click=${this._deleteAll}>
-              <icon-svg name="trash" size="16"></icon-svg>
-              Delete All
-            </button>
-          ` : ''}
+          <div class="flex items-center gap-2">
+            ${this.pendingCount > 0 ? html`
+              <button class="tooltip btn btn-primary btn-sm" data-tip="Analyze all unanalyzed documents" @click=${this.analyzePending} ?disabled=${this.analyzing}>
+                ${this.analyzing ? html`<span class="loading loading-spinner loading-xs"></span>` : html`<icon-svg name="sparkles" size="16"></icon-svg>`}
+                Analyze Pending (${this.pendingCount})
+              </button>
+            ` : ''}
+            ${this.documents.length > 0 ? html`
+              <button class="tooltip btn btn-error btn-sm" data-tip="Delete all documents" @click=${this._deleteAll}>
+                <icon-svg name="trash" size="16"></icon-svg>
+                Delete All
+              </button>
+            ` : ''}
+          </div>
         </div>
 
         <search-bar @search=${this.onSearch}></search-bar>

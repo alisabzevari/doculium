@@ -2,16 +2,56 @@ import { LitElement, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Document } from '../db/schema.ts';
 import { db } from '../db/schema.ts';
+import { addAnalysisJob } from '../db/document-store.ts';
+import { processQueue } from '../services/analysis-queue.ts';
+import { getDirectoryHandle } from '../utils/handle-store.ts';
+import { v4 as uuid } from 'uuid';
 
 @customElement('document-card')
 export class DocumentCard extends LitElement {
   @property({ attribute: false }) document!: Document;
   @property({ type: Boolean }) selected = false;
   @state() private categoryIcon = '';
+  @state() private analyzing = false;
 
   private static _iconCache: Map<string, string> | null = null;
 
   createRenderRoot() { return this; }
+
+  async analyze(e: Event) {
+    e.stopPropagation();
+    if (this.analyzing) return;
+    this.analyzing = true;
+    const now = new Date().toISOString();
+    await addAnalysisJob({
+      id: uuid(),
+      documentId: this.document.id,
+      status: 'queued',
+      provider: '',
+      model: '',
+      promptTokens: 0,
+      completionTokens: 0,
+      error: null,
+      startedAt: null,
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const dirHandle = await getDirectoryHandle();
+    await processQueue(dirHandle, [this.document.id], (p) => {
+      if (p.status === 'analyzed') {
+        this.document.status = 'analyzed';
+        this.analyzing = false;
+        this.requestUpdate();
+        this.dispatchEvent(new CustomEvent('document-analyzed', { bubbles: true, composed: true, detail: { id: this.document.id } }));
+      } else if (p.status === 'error') {
+        this.document.status = 'error';
+        this.document.error = p.error || 'Analysis failed';
+        this.analyzing = false;
+        this.requestUpdate();
+      }
+    });
+  }
 
   async connectedCallback() {
     super.connectedCallback();
@@ -40,12 +80,27 @@ export class DocumentCard extends LitElement {
               <p class="font-medium text-sm truncate" title="${d.originalName}">${d.originalName}</p>
             </div>
           </div>
-          ${d.summary ? html`
+          ${d.status === 'analyzed' && d.summary ? html`
             <p class="text-xs text-base-content/70 line-clamp-2">${d.summary}</p>
-          ` : html`
+          ` : d.status === 'error' ? html`
+            <div class="flex items-center gap-2">
+              <icon-svg name="alertCircle" size="14" class="text-error shrink-0"></icon-svg>
+              <span class="text-xs text-error truncate flex-1" title="${d.error || 'Analysis failed'}">${d.error || 'Analysis failed'}</span>
+              <button class="tooltip btn btn-xs btn-ghost" data-tip="Retry analysis" @click=${this.analyze}>
+                <icon-svg name="refresh" size="12"></icon-svg>
+              </button>
+            </div>
+          ` : d.status === 'analyzing' || this.analyzing ? html`
             <div class="flex items-center gap-2">
               <span class="loading loading-spinner loading-xs"></span>
               <span class="text-xs text-base-content/50">Analyzing...</span>
+            </div>
+          ` : html`
+            <div class="flex items-center gap-2">
+              <button class="tooltip btn btn-xs btn-primary" data-tip="Analyze this document" @click=${this.analyze}>
+                <icon-svg name="sparkles" size="12"></icon-svg>
+                Analyze
+              </button>
             </div>
           `}
           <div class="flex items-center justify-between text-xs text-base-content/50">

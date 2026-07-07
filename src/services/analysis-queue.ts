@@ -104,7 +104,7 @@ export async function processQueue(
         completedAt: new Date().toISOString(),
       });
 
-      if (dirHandle && result.suggestedFilename) {
+      if (dirHandle && result.suggestedFilename && !doc.storedPath) {
         try {
           const datePrefix = dateFromResult(result);
           const datedFilename = datePrefix

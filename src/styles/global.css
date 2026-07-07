@@ -61,3 +61,20 @@ search-bar {
 .high { background: var(--color-warning); }
 .medium { background: var(--color-primary); }
 .low { background: var(--color-success); }
+
+.markdown-body h1 { font-size: 1.5rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+.markdown-body h2 { font-size: 1.25rem; font-weight: 700; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+.markdown-body h3 { font-size: 1.125rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; }
+.markdown-body h4 { font-size: 1rem; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.5rem; }
+.markdown-body p { margin-bottom: 0.75rem; }
+.markdown-body ul, .markdown-body ol { margin-bottom: 0.75rem; padding-left: 1.5rem; }
+.markdown-body li { margin-bottom: 0.25rem; }
+.markdown-body ul li { list-style: disc; }
+.markdown-body ol li { list-style: decimal; }
+.markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 0.75rem; }
+.markdown-body th, .markdown-body td { border: 1px solid var(--color-base-300); padding: 0.375rem 0.5rem; text-align: left; }
+.markdown-body th { background: var(--color-base-300); font-weight: 600; }
+.markdown-body pre { background: var(--color-base-300); padding: 0.75rem; border-radius: 0.375rem; overflow-x: auto; margin-bottom: 0.75rem; }
+.markdown-body code { font-size: 0.875em; }
+.markdown-body hr { margin: 1.5rem 0; border-color: var(--color-base-300); }
+.markdown-body blockquote { border-left: 3px solid var(--color-primary); padding-left: 0.75rem; margin-bottom: 0.75rem; opacity: 0.8; }
