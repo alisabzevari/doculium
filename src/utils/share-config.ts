@@ -20,6 +20,6 @@ export function decodeShareConfig(encoded: string): SharedConfig | null {
 }
 
 export function buildShareUrl(config: SharedConfig): string {
-  const base = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+  const base = `${window.location.origin}${import.meta.env.BASE_URL}`;
   return `${base}?config=${encodeURIComponent(encodeShareConfig(config))}`;
 }
