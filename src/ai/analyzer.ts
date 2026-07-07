@@ -1,4 +1,4 @@
-import type { AnalysisResult, AIProvider, AnalyzeOptions, ChatMessage } from './types.ts';
+import type { AnalysisResult, AIProvider, AnalyzeOptions, ChatMessage, ToolDefinition, ChatResult } from './types.ts';
 import { createProvider } from './provider.ts';
 import { getSettings } from '../db/config-store.ts';
 
@@ -20,24 +20,27 @@ export async function analyzeDocument(text: string, options?: AnalyzeOptions): P
   return provider.analyzeDocument(text, options);
 }
 
-export async function chatWithDocument(
-  extractedText: string,
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-): Promise<string> {
-  const provider = await getAIProvider();
-  const settings = await getSettings();
-
-  const systemPrompt = `${settings.chatPrompt || 'You are a helpful assistant analyzing a document.'}
+function buildSystemPrompt(chatPrompt: string, extractedText: string): string {
+  return `${chatPrompt || 'You are a helpful assistant analyzing a document.'}
 
 Document content:
 ${extractedText || '[No extractable text available]'}`;
+}
+
+export async function chatWithDocument(
+  extractedText: string,
+  messages: ChatMessage[],
+  tools?: ToolDefinition[],
+): Promise<ChatResult> {
+  const provider = await getAIProvider();
+  const settings = await getSettings();
 
   const chatMessages: ChatMessage[] = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: buildSystemPrompt(settings.chatPrompt, extractedText) },
     ...messages,
   ];
 
-  return provider.chat(chatMessages);
+  return provider.chat(chatMessages, tools);
 }
 
 export async function testConnection(): Promise<boolean> {

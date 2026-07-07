@@ -34,12 +34,24 @@ export class DocumentDetail extends LitElement {
   if (id) {
    this.doc = await getDocument(id) ?? null;
    if (this.doc) {
-    this.actionItems = await getActionItemsByDocument(this.doc.id);
+    await this._loadActionItems();
     this.noHandle = !(await hasDirectoryHandle());
     if (!this.noHandle) {
       await this._loadFile();
     }
    }
+  }
+  this.addEventListener('action-items-changed', this._loadActionItems);
+ }
+
+ disconnectedCallback() {
+  super.disconnectedCallback();
+  this.removeEventListener('action-items-changed', this._loadActionItems);
+ }
+
+ private async _loadActionItems() {
+  if (this.doc) {
+   this.actionItems = await getActionItemsByDocument(this.doc.id);
   }
  }
 
@@ -146,7 +158,7 @@ export class DocumentDetail extends LitElement {
        ${this.actionItems.length > 0 ? html`
         <div class="bg-base-200 p-4">
          <h2 class="font-semibold mb-2">Action Items</h2>
-         <action-item-list .items=${this.actionItems}></action-item-list>
+         <action-item-list .items=${this.actionItems} showCompleted></action-item-list>
         </div>
        ` : ''}
 

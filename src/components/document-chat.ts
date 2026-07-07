@@ -3,25 +3,64 @@ import { customElement, property, state, query } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
 import { chatWithDocument } from '../ai/analyzer.ts';
-import { getChatMessages, addChatMessage, clearChatMessages } from '../db/document-store.ts';
+import { getChatMessages, addChatMessage, clearChatMessages, addActionItem, markActionItemDone, getActionItemsByDocument } from '../db/document-store.ts';
 import { v4 as uuid } from 'uuid';
+import type { ToolDefinition, ToolCall, ChatMessage } from '../ai/types.ts';
 
 marked.setOptions({ breaks: true, gfm: true });
 
-interface Message {
+interface DisplayMessage {
   role: 'user' | 'assistant';
   content: string;
 }
+
+const TOOLS: ToolDefinition[] = [
+  {
+    name: 'add_action_item',
+    description: 'Add an action item for this document',
+    parameters: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'The action item text' },
+        urgency: { type: 'string', description: 'Urgency level', enum: ['low', 'medium', 'high', 'critical'] },
+      },
+      required: ['text'],
+    },
+  },
+  {
+    name: 'mark_action_item_done',
+    description: 'Mark an action item as completed',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'The action item ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'list_action_items',
+    description: 'List all action items for this document',
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+];
 
 @customElement('document-chat')
 export class DocumentChat extends LitElement {
   @property({ attribute: false }) extractedText = '';
   @property({ attribute: false }) documentId = '';
-  @state() private messages: Message[] = [];
+  @state() private messages: DisplayMessage[] = [];
   @state() private loading = false;
   @state() private input = '';
+  @state() private toolInProgress = '';
 
   @query('.chat-input') inputEl!: HTMLInputElement;
+
+  private conversation: ChatMessage[] = [];
 
   createRenderRoot() { return this; }
 
@@ -30,6 +69,7 @@ export class DocumentChat extends LitElement {
     if (this.documentId) {
       const stored = await getChatMessages(this.documentId);
       this.messages = stored.map(m => ({ role: m.role, content: m.content }));
+      this.conversation = stored.map(m => ({ role: m.role, content: m.content }));
       await this.updateComplete;
       this._scrollDown();
     }
@@ -48,19 +88,88 @@ export class DocumentChat extends LitElement {
     });
   }
 
+  private async _executeTool(toolCall: ToolCall): Promise<string> {
+    switch (toolCall.name) {
+      case 'add_action_item': {
+        const text = String(toolCall.arguments.text || '');
+        const urgency = (toolCall.arguments.urgency as string) || 'medium';
+        const valid = ['low', 'medium', 'high', 'critical'].includes(urgency) ? urgency : 'medium';
+        const now = new Date().toISOString();
+        await addActionItem({
+          id: uuid(),
+          documentId: this.documentId,
+          text,
+          urgency: valid as any,
+          completed: false,
+          completedAt: null,
+          createdAt: now,
+          updatedAt: now,
+          dueDate: null,
+        });
+        return JSON.stringify({ success: true });
+      }
+      case 'mark_action_item_done': {
+        const id = String(toolCall.arguments.id || '');
+        await markActionItemDone(id);
+        return JSON.stringify({ success: true });
+      }
+      case 'list_action_items': {
+        const items = await getActionItemsByDocument(this.documentId);
+        return JSON.stringify(items.map(i => ({ id: i.id, text: i.text, urgency: i.urgency, completed: i.completed })));
+      }
+      default:
+        return JSON.stringify({ success: false, error: `Unknown tool: ${toolCall.name}` });
+    }
+  }
+
   private async _send() {
     const text = this.input.trim();
     if (!text || this.loading) return;
 
     this.input = '';
+    this.conversation.push({ role: 'user', content: text });
     this.messages = [...this.messages, { role: 'user', content: text }];
     this.loading = true;
     this._save('user', text);
 
     try {
-      const response = await chatWithDocument(this.extractedText, this.messages);
-      this.messages = [...this.messages, { role: 'assistant', content: response }];
-      this._save('assistant', response);
+      let response = await chatWithDocument(this.extractedText, this.conversation, TOOLS);
+      let iterations = 0;
+      const MAX_ITERATIONS = 10;
+
+      while (response.toolCalls && response.toolCalls.length > 0 && iterations < MAX_ITERATIONS) {
+        iterations++;
+        this.toolInProgress = `Using tools...`;
+
+        this.conversation.push({
+          role: 'assistant',
+          content: response.content || '',
+          tool_calls: response.toolCalls,
+        });
+
+        for (const tc of response.toolCalls) {
+          const result = await this._executeTool(tc);
+          this.conversation.push({
+            role: 'tool',
+            content: result,
+            tool_call_id: tc.id,
+          });
+        }
+
+        response = await chatWithDocument(this.extractedText, this.conversation, TOOLS);
+      }
+
+      this.toolInProgress = '';
+
+      if (iterations > 0) {
+        this.dispatchEvent(new CustomEvent('action-items-changed', { bubbles: true, composed: true }));
+      }
+
+      if (response.content) {
+        this.conversation.push({ role: 'assistant', content: response.content });
+        this.messages = [...this.messages, { role: 'assistant', content: response.content }];
+        this._save('assistant', response.content);
+      }
     } catch (err: any) {
       const errorMsg = `Error: ${err.message}`;
       this.messages = [...this.messages, { role: 'assistant', content: errorMsg }];
@@ -77,6 +186,7 @@ export class DocumentChat extends LitElement {
     if (!this.documentId) return;
     await clearChatMessages(this.documentId);
     this.messages = [];
+    this.conversation = [];
   }
 
   private _handleKeydown(e: KeyboardEvent) {
@@ -144,8 +254,9 @@ export class DocumentChat extends LitElement {
           `)}
           ${this.loading ? html`
             <div class="flex justify-start">
-              <div class="bg-base-300 px-4 py-3">
+              <div class="bg-base-300 px-4 py-3 space-y-1">
                 <span class="loading loading-dots loading-sm"></span>
+                ${this.toolInProgress ? html`<div class="text-xs opacity-50">${this.toolInProgress}</div>` : ''}
               </div>
             </div>
           ` : ''}

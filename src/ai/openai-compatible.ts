@@ -1,17 +1,9 @@
-import type { AIProvider, AnalysisResult, AIProviderConfig, AnalyzeOptions, ChatMessage } from './types.ts';
+import type { AIProvider, AIProviderConfig, AnalysisResult, AnalyzeOptions, ChatMessage, ToolDefinition, ChatResult, ToolCall } from './types.ts';
 
 export class OpenAICompatibleProvider implements AIProvider {
-  readonly name: string;
+  readonly name = 'OpenAI Compatible';
 
-  private constructor(
-    private config: AIProviderConfig,
-  ) {
-    this.name = `${config.type}:${config.model}`;
-  }
-
-  static create(config: AIProviderConfig): OpenAICompatibleProvider {
-    return new OpenAICompatibleProvider(config);
-  }
+  constructor(private config: AIProviderConfig) {}
 
   async analyzeDocument(text: string, options?: AnalyzeOptions): Promise<AnalysisResult> {
     const prompt = buildPrompt(options?.prompt || '', options?.validCategories);
@@ -45,19 +37,47 @@ export class OpenAICompatibleProvider implements AIProvider {
     return this.parseResponse(content);
   }
 
-  async chat(messages: ChatMessage[]): Promise<string> {
+  async chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<ChatResult> {
+    const apiMessages = messages.map(m => {
+      const msg: Record<string, unknown> = { role: m.role, content: m.content };
+      if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+      if (m.tool_calls) {
+        msg.tool_calls = m.tool_calls.map(tc => ({
+          id: tc.id,
+          type: 'function',
+          function: {
+            name: tc.name,
+            arguments: JSON.stringify(tc.arguments),
+          },
+        }));
+      }
+      return msg;
+    });
+
+    const body: Record<string, unknown> = {
+      model: this.config.model,
+      messages: apiMessages,
+      temperature: 0.7,
+      max_tokens: 2000,
+    };
+    if (tools && tools.length > 0) {
+      body.tools = tools.map(t => ({
+        type: 'function',
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.parameters,
+        },
+      }));
+    }
+
     const response = await fetch(`${this.config.baseUrl.replace(/\/$/, '')}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.config.apiKey}`,
       },
-      body: JSON.stringify({
-        model: this.config.model,
-        messages,
-        temperature: 0.7,
-        max_tokens: 2000,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -66,9 +86,20 @@ export class OpenAICompatibleProvider implements AIProvider {
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) throw new Error('No content in response');
-    return content;
+    const message = data.choices?.[0]?.message;
+    if (!message) throw new Error('No response from API');
+
+    const result: ChatResult = { content: message.content || null };
+
+    if (message.tool_calls) {
+      result.toolCalls = message.tool_calls.map((tc: any) => ({
+        id: tc.id,
+        name: tc.function.name,
+        arguments: JSON.parse(tc.function.arguments),
+      }));
+    }
+
+    return result;
   }
 
   async testConnection(): Promise<boolean> {

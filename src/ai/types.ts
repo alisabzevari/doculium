@@ -14,7 +14,7 @@ export interface AnalysisResult {
 }
 
 export interface AIProviderConfig {
-  type: 'openai-compatible' | 'anthropic' | 'gemini' | 'local';
+  type: 'openai-compatible' | 'local';
   baseUrl: string;
   apiKey: string;
   model: string;
@@ -26,13 +26,42 @@ export interface AnalyzeOptions {
 }
 
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
+  tool_call_id?: string;
+  tool_calls?: ToolCall[];
+}
+
+export interface ToolParameter {
+  type: string;
+  description?: string;
+  enum?: string[];
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: {
+    type: 'object';
+    properties: Record<string, ToolParameter>;
+    required: string[];
+  };
+}
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface ChatResult {
+  content: string | null;
+  toolCalls?: ToolCall[];
 }
 
 export interface AIProvider {
   readonly name: string;
   analyzeDocument(text: string, options?: AnalyzeOptions): Promise<AnalysisResult>;
-  chat(messages: ChatMessage[]): Promise<string>;
+  chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<ChatResult>;
   testConnection(): Promise<boolean>;
 }

@@ -1,68 +1,37 @@
-import type { AIProvider, AnalysisResult, AIProviderConfig, AnalyzeOptions, ChatMessage } from './types.ts';
-import { CreateMLCEngine, type MLCEngineInterface } from '@mlc-ai/web-llm';
+import type { AIProvider, AnalysisResult, AnalyzeOptions, ChatMessage, ToolDefinition, ChatResult } from './types.ts';
+import { CreateMLCEngine, type MLCEngine } from '@mlc-ai/web-llm';
 
-function hasWebGPU(): boolean {
-  return typeof navigator !== 'undefined' && 'gpu' in navigator && !!navigator.gpu;
+let webGpuAvailable: boolean | null = null;
+
+export async function hasWebGPU(): Promise<boolean> {
+  if (webGpuAvailable !== null) return webGpuAvailable;
+  webGpuAvailable = typeof navigator !== 'undefined' && !!(navigator as any).gpu;
+  return webGpuAvailable;
+}
+
+const MODELS: Record<string, string> = {
+  'qwen2.5-1.5b': 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+  'qwen2.5-7b': 'Qwen2.5-7B-Instruct-q4f16_1-MLC',
+  'llama3.1-8b': 'Llama-3.1-8B-Instruct-q4f16_1-MLC',
+};
+
+export function getAvailableModels(): Array<{ id: string; label: string }> {
+  return [
+    { id: 'qwen2.5-1.5b', label: 'Qwen 2.5 1.5B (fast, less capable)' },
+    { id: 'qwen2.5-7b', label: 'Qwen 2.5 7B (balanced)' },
+    { id: 'llama3.1-8b', label: 'Llama 3.1 8B (best quality)' },
+  ];
+}
+
+export function getModelId(shortName: string): string {
+  return MODELS[shortName] || shortName;
 }
 
 export class LocalProvider implements AIProvider {
-  readonly name: string;
-  private engine: MLCEngineInterface | null = null;
-  private loading = false;
-  private loadPromise: Promise<MLCEngineInterface> | null = null;
-  private _initProgress = '';
-
-  private constructor(private config: AIProviderConfig) {
-    this.name = `local:${config.model}`;
-  }
-
-  static create(config: AIProviderConfig): LocalProvider {
-    return new LocalProvider(config);
-  }
-
-  get initProgress(): string {
-    return this._initProgress;
-  }
-
-  get isLoaded(): boolean {
-    return this.engine !== null;
-  }
-
-  get isLoading(): boolean {
-    return this.loading;
-  }
-
-  async downloadModel(onProgress?: (text: string, progress: number) => void): Promise<void> {
-    this._initProgress = '';
-    this.loading = true;
-    this.loadPromise = CreateMLCEngine(this.config.model, {
-      initProgressCallback: (p) => {
-        const text = p.text || `Loading... ${Math.round(p.progress * 100)}%`;
-        this._initProgress = text;
-        onProgress?.(text, p.progress);
-      },
-    });
-    try {
-      this.engine = await this.loadPromise;
-    } catch (err) {
-      this.loadPromise = null;
-      throw err;
-    } finally {
-      this.loading = false;
-    }
-  }
-
-  async ensureEngine(): Promise<MLCEngineInterface> {
-    if (this.engine) return this.engine;
-    if (this.loadPromise) return this.loadPromise;
-
-    if (!hasWebGPU()) {
-      throw new Error('WebGPU is not available in this browser. Local AI models require WebGPU. Try Chrome or Edge.');
-    }
-
-    await this.downloadModel();
-    return this.engine!;
-  }
+  readonly name = 'Local (WebLLM)';
+  private engine: MLCEngine | null = null;
+  private loadPromise: Promise<void> | null = null;
+  private modelId = '';
 
   async analyzeDocument(text: string, options?: AnalyzeOptions): Promise<AnalysisResult> {
     const engine = await this.ensureEngine();
@@ -85,29 +54,92 @@ export class LocalProvider implements AIProvider {
     return this.parseResponse(content);
   }
 
-  async chat(messages: ChatMessage[]): Promise<string> {
+  async chat(messages: ChatMessage[], tools?: ToolDefinition[]): Promise<ChatResult> {
     const engine = await this.ensureEngine();
 
-    const reply = await engine.chat.completions.create({
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
-      temperature: 0.7,
-      max_tokens: 2000,
+    const apiMessages = messages.map((m): Record<string, unknown> => {
+      const msg: Record<string, unknown> = { role: m.role, content: m.content };
+      if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+      if (m.tool_calls) {
+        msg.tool_calls = m.tool_calls.map(tc => ({
+          id: tc.id,
+          type: 'function',
+          function: {
+            name: tc.name,
+            arguments: JSON.stringify(tc.arguments),
+          },
+        }));
+      }
+      return msg;
     });
 
-    const content = reply.choices[0]?.message?.content;
-    if (!content) throw new Error('No content in response');
-    return content;
+    const body: Record<string, unknown> = {
+      messages: apiMessages,
+      temperature: 0.7,
+      max_tokens: 2000,
+    };
+    if (tools && tools.length > 0) {
+      body.tools = tools.map(t => ({
+        type: 'function',
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.parameters,
+        },
+      }));
+    }
+
+    const reply = await engine.chat.completions.create(body as any);
+
+    const message = reply.choices[0]?.message;
+    if (!message) throw new Error('No response from engine');
+
+    const result: ChatResult = { content: message.content || null };
+
+    if (message.tool_calls) {
+      result.toolCalls = message.tool_calls.map((tc: any) => ({
+        id: tc.id || tc.function.name,
+        name: tc.function.name,
+        arguments: typeof tc.function.arguments === 'string' ? JSON.parse(tc.function.arguments) : tc.function.arguments,
+      }));
+    }
+
+    return result;
   }
 
   async testConnection(): Promise<boolean> {
     return hasWebGPU();
   }
 
+  async ensureEngine(): Promise<MLCEngine> {
+    if (this.engine) return this.engine;
+    if (this.loadPromise) {
+      await this.loadPromise;
+      return this.engine!;
+    }
+    throw new Error('Model not loaded. Download the model in Settings first.');
+  }
+
+  async downloadModel(modelShortName: string, onProgress?: (progress: number) => void): Promise<void> {
+    this.modelId = getModelId(modelShortName);
+    this.loadPromise = this._loadEngine(onProgress);
+    await this.loadPromise;
+  }
+
+  private async _loadEngine(onProgress?: (progress: number) => void): Promise<void> {
+    this.engine = await CreateMLCEngine(
+      this.modelId,
+      {
+        initProgressCallback: (report) => {
+          if (onProgress && report.progress) onProgress(report.progress);
+        },
+      },
+    );
+  }
+
   async unload(): Promise<void> {
     if (this.engine) {
-      try {
-        await this.engine.resetChat();
-      } catch { /* ignore */ }
+      try { await this.engine.resetChat(); } catch { /* ignore */ }
       this.engine = null;
     }
     this.loadPromise = null;

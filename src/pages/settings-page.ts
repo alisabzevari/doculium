@@ -113,7 +113,8 @@ export class SettingsPage extends LitElement {
 
     try {
       const provider = await getAIProvider() as LocalProvider;
-      await provider.downloadModel((_text, progress) => {
+      const modelId = this.settings.aiProvider.model || 'qwen2.5-1.5b';
+      await provider.downloadModel(modelId, (progress) => {
         this.downloadPercent = progress;
         this.downloadProgress = `${(progress * 100).toFixed(1)}%`;
         this.requestUpdate();
@@ -181,8 +182,6 @@ export class SettingsPage extends LitElement {
                   this.settings = this.settings ? { ...this.settings, aiProvider: { ...this.settings.aiProvider, type: (e.target as HTMLSelectElement).value as any } } : null;
                 }}>
                 <option value="openai-compatible">OpenAI Compatible</option>
-                <option value="anthropic">Anthropic Claude</option>
-                <option value="gemini">Google Gemini</option>
                 <option value="local">Local AI (WebLLM)</option>
               </select>
             </div>

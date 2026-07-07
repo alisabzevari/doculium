@@ -1,7 +1,7 @@
 import { db, getDefaultCategories } from './schema.ts';
 
 export interface AIProviderConfig {
-  type: 'openai-compatible' | 'anthropic' | 'gemini' | 'local';
+  type: 'openai-compatible' | 'local';
   baseUrl: string;
   apiKey: string;
   model: string;

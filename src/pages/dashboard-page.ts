@@ -60,7 +60,7 @@ export class DashboardPage extends LitElement {
        <span class="badge badge-error">${this.stats.urgent}</span>
        Action Items
       </h2>
-      <action-item-list .items=${this.actionItems}></action-item-list>
+      <action-item-list .items=${this.actionItems} showCompleted></action-item-list>
      </section>
     ` : ''}
 
