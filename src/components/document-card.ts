@@ -11,6 +11,7 @@ import { v4 as uuid } from 'uuid';
 export class DocumentCard extends LitElement {
   @property({ attribute: false }) document!: Document;
   @property({ type: Boolean }) selected = false;
+  @property({ type: Boolean }) selectable = false;
   @state() private categoryIcon = '';
   @state() private analyzing = false;
 
@@ -62,65 +63,71 @@ export class DocumentCard extends LitElement {
       const cats = await db.categories.toArray();
       DocumentCard._iconCache = new Map(cats.map(c => [c.name, c.icon]));
     }
-    this.categoryIcon = DocumentCard._iconCache.get(this.document.category) || '📄';
+    this.categoryIcon = DocumentCard._iconCache.get(this.document.category) || '';
+  }
+
+  private _urgencyBorder(d: Document) {
+    if (d.urgency === 'critical') return 'border-l-4 border-l-error';
+    if (d.urgency === 'high') return 'border-l-4 border-l-warning';
+    return 'border-l-4 border-l-base-300';
   }
 
   render() {
     const d = this.document;
+    const ext = d.originalName.split('.').pop()?.toLowerCase() || '';
+
     return html`
-      <div class="card card-compact bg-base-200 border border-base-300 cursor-pointer transition-shadow hover:shadow-lg ${this.selected ? 'ring-2 ring-primary' : ''}">
-        <div class="card-body">
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="urgency-dot ${d.urgency}"></span>
-                <span class="badge badge-sm gap-1 px-2">
-                  <span>${this.categoryIcon}</span>
-                  <span>${d.category || 'Uncategorized'}</span>
-                </span>
-                ${d.taxRelevant ? html`<span class="badge badge-sm badge-warning">Tax</span>` : ''}
-              </div>
-              <p class="font-medium text-sm truncate" title="${d.originalName}">${d.originalName}</p>
+      <div class="card card-compact bg-base-200 border border-base-300 cursor-pointer transition-shadow hover:shadow-md ${this._urgencyBorder(d)} ${this.selected ? 'ring-2 ring-primary' : ''}">
+        <div class="card-body p-3 gap-2">
+          <div class="flex items-start justify-between gap-2 min-w-0">
+            <div class="flex items-start gap-2 min-w-0 flex-1">
+              ${this.selectable ? html`
+                <input type="checkbox" class="checkbox checkbox-xs mt-0.5 shrink-0" .checked=${this.selected}
+                  @click=${(e: Event) => { e.stopPropagation(); this.dispatchEvent(new CustomEvent('toggle-select', { bubbles: true, composed: true, detail: { id: this.document.id } })); }}>
+              ` : ''}
+              <p class="font-medium text-sm leading-tight truncate" title="${d.originalName}">${d.originalName}</p>
             </div>
+            ${d.status === 'analyzed' ? html`
+              <span class="badge badge-xs badge-success shrink-0">Done</span>
+            ` : d.status === 'error' ? html`
+              <span class="badge badge-xs badge-error shrink-0">Failed</span>
+            ` : d.status === 'analyzing' || this.analyzing ? html`
+              <span class="loading loading-spinner loading-xs shrink-0"></span>
+            ` : html`
+              <span class="badge badge-xs badge-ghost shrink-0">Pending</span>
+            `}
           </div>
+
           ${d.status === 'analyzed' && d.summary ? html`
-            <div class="flex items-start gap-2">
-              <p class="text-xs text-base-content/70 line-clamp-2 flex-1 min-w-0">${d.summary}</p>
-              <button class="tooltip btn btn-xs btn-ghost shrink-0" data-tip="Re-analyze" @click=${this.analyze}>
+            <div class="group relative">
+              <p class="text-xs text-base-content/70 line-clamp-2 leading-relaxed">${d.summary}</p>
+              <button class="tooltip btn btn-ghost btn-xs opacity-0 group-hover:opacity-100 transition-opacity absolute top-0 right-0" data-tip="Re-analyze" @click=${this.analyze}>
                 <icon-svg name="refresh" size="12"></icon-svg>
               </button>
             </div>
           ` : d.status === 'error' ? html`
             <div class="flex items-center gap-2">
-              <icon-svg name="alertCircle" size="14" class="text-error shrink-0"></icon-svg>
-              <span class="text-xs text-error truncate flex-1" title="${d.error || 'Analysis failed'}">${d.error || 'Analysis failed'}</span>
-              <button class="tooltip btn btn-xs btn-ghost" data-tip="Retry analysis" @click=${this.analyze}>
+              <p class="text-xs text-error/70 truncate flex-1" title="${d.error || 'Analysis failed'}">${d.error || 'Analysis failed'}</p>
+              <button class="tooltip btn btn-ghost btn-xs shrink-0" data-tip="Retry" @click=${this.analyze}>
                 <icon-svg name="refresh" size="12"></icon-svg>
               </button>
             </div>
           ` : d.status === 'analyzing' || this.analyzing ? html`
-            <div class="flex items-center gap-2">
-              <span class="loading loading-spinner loading-xs"></span>
-              <span class="text-xs text-base-content/50">Analyzing...</span>
-            </div>
+            <p class="text-xs text-base-content/40 italic">Analyzing...</p>
           ` : html`
-            <div class="flex items-center gap-2">
-              <button class="tooltip btn btn-xs btn-primary" data-tip="Analyze this document" @click=${this.analyze}>
-                <icon-svg name="sparkles" size="12"></icon-svg>
-                Analyze
-              </button>
-            </div>
+            <button class="tooltip btn btn-ghost btn-xs justify-start w-fit" data-tip="Analyze this document" @click=${this.analyze}>
+              <icon-svg name="sparkles" size="12"></icon-svg>
+              Analyze
+            </button>
           `}
-          <div class="flex items-center justify-between text-xs text-base-content/50">
-            <span>${d.year}</span>
-            <div class="flex items-center gap-2">
-              ${d.fileType === 'application/pdf' ? html`
-                <icon-svg name="fileText" size="14"></icon-svg>
-              ` : d.fileType.startsWith('image/') ? html`
-                <icon-svg name="image" size="14"></icon-svg>
-              ` : ''}
-              ${d.storedPath ? html`<span>● Organized</span>` : ''}
-            </div>
+
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${d.category ? html`<span class="badge badge-xs badge-soft">${this.categoryIcon || '📄'} ${d.category}</span>` : ''}
+            ${d.year ? html`<span class="text-xs opacity-40">${d.year}</span>` : ''}
+            ${ext === 'pdf' ? html`<icon-svg name="fileText" size="12" class="opacity-30 shrink-0"></icon-svg>`
+            : ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext) ? html`<icon-svg name="image" size="12" class="opacity-30 shrink-0"></icon-svg>`
+            : ''}
+            ${d.taxRelevant ? html`<span class="badge badge-xs badge-warning">Tax</span>` : ''}
           </div>
         </div>
       </div>

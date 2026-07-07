@@ -45,6 +45,35 @@ export async function getDocumentsByYear(year: number): Promise<Document[]> {
   return db.documents.where("year").equals(year).toArray();
 }
 
+export async function getRecentDocuments(limit: number = 6): Promise<Document[]> {
+  return db.documents.orderBy("createdAt").reverse().limit(limit).toArray();
+}
+
+export async function getYearCounts(): Promise<{ year: number | null; count: number }[]> {
+  const keys = (await db.documents.orderBy('year').keys()) as (number | null)[];
+  const map = new Map<number | null, number>();
+  for (const key of keys) {
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+  return [...map.entries()].map(([year, count]) => ({ year, count }));
+}
+
+export async function getCategoryNames(): Promise<string[]> {
+  const keys = (await db.documents.orderBy('category').keys()) as string[];
+  return [...new Set(keys.filter(Boolean))];
+}
+
+export async function getCategoryCountsForYear(year: number | null): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  const collection = year === null
+    ? db.documents.filter(d => d.year === null)
+    : db.documents.where('year').equals(year);
+  await collection.each(d => {
+    if (d.category) counts[d.category] = (counts[d.category] || 0) + 1;
+  });
+  return counts;
+}
+
 export async function searchDocuments(query: string): Promise<Document[]> {
   const docs = await db.documents.toArray();
   const lower = query.toLowerCase();
@@ -165,7 +194,7 @@ export async function resetDocumentForAnalysis(id: string): Promise<void> {
     urgency: 'medium',
     taxRelevant: false,
     category: '',
-    year: new Date().getFullYear(),
+    year: null,
     month: null,
     dateFrom: null,
     dateTo: null,

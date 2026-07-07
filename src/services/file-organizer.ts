@@ -30,6 +30,7 @@ export async function organizeAnalyzedDocuments(
       }
 
       const file = await fileHandle.getFile();
+      if (!doc.year) continue;
       const storedPath = await organizeFile(
         destDir,
         file,

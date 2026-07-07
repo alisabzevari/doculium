@@ -14,7 +14,7 @@ export interface Document {
   urgency: 'low' | 'medium' | 'high' | 'critical';
   taxRelevant: boolean;
   category: string;
-  year: number;
+  year: number | null;
   month: number | null;
   dateFrom: string | null;
   dateTo: string | null;

@@ -1,7 +1,6 @@
 import './styles/global.css';
 import './app-shell.ts';
 import './pages/dashboard-page.ts';
-import './pages/scan-page.ts';
 import './pages/library-page.ts';
 import './pages/document-detail.ts';
 import './pages/settings-page.ts';

@@ -123,36 +123,37 @@ export class DocumentDetail extends LitElement {
 
    const d = this.doc;
    return html`
-    <div class="p-6 max-w-4xl mx-auto space-y-6">
-     <button class="tooltip btn btn-ghost btn-sm" data-tip="Back to Library" @click=${() => window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/library' } }))}>
-      Back to Library
-     </button>
+     <div class="p-6 max-w-4xl mx-auto space-y-6">
+      <button class="tooltip btn btn-ghost btn-sm" data-tip="Back to Library" @click=${() => window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/library' } }))}>
+       <icon-svg name="arrowLeft" size="16"></icon-svg>
+       Back
+      </button>
 
-     <div class="bg-base-200 p-4">
-      <div class="flex items-start justify-between flex-wrap gap-2">
-        <div class="min-w-0">
-         <h1 class="text-xl font-bold truncate" title="${d.originalName}">${d.originalName}</h1>
-         <p class="text-sm opacity-50 mt-1 truncate" title="${d.originalPath}">${d.originalPath}</p>
-       </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="badge gap-1 ${d.urgency === 'critical' ? 'badge-error' : d.urgency === 'high' ? 'badge-warning' : 'badge-ghost'}">
-           ${d.urgency === 'critical' ? html`<icon-svg name="alertTriangle" size="12"></icon-svg>` : d.urgency === 'high' ? html`<icon-svg name="arrowUp" size="12"></icon-svg>` : d.urgency === 'medium' ? html`<icon-svg name="minus" size="12"></icon-svg>` : html`<icon-svg name="arrowDown" size="12"></icon-svg>`}
-           ${d.urgency}</span>
-         ${d.taxRelevant ? html`<span class="badge badge-warning">Tax Relevant</span>` : ''}
-         ${!this.analyzing ? html`
-          <button class="tooltip btn btn-primary btn-sm" data-tip="${d.status === 'analyzed' ? 'Re-analyze this document' : 'Analyze this document'}" @click=${this._analyze}>
-           <icon-svg name="sparkles" size="16"></icon-svg>
-           ${d.status === 'analyzed' ? 'Re-analyze' : 'Analyze'}
-          </button>
-         ` : ''}
-         ${this.analyzing ? html`<span class="loading loading-spinner loading-sm"></span>` : ''}
-        <button class="tooltip btn btn-error btn-sm" data-tip="Delete document" @click=${this._deleteDoc}>
-         <icon-svg name="trash" size="16"></icon-svg>
-         Delete
-        </button>
+      <div class="bg-base-200 p-4 rounded-box">
+       <div class="flex items-start justify-between gap-3 flex-wrap">
+         <div class="min-w-0 flex-1">
+          <h1 class="text-lg font-bold truncate" title="${d.originalName}">${d.originalName}</h1>
+          <div class="flex items-center gap-2 mt-1 flex-wrap">
+           <p class="text-xs opacity-50 truncate" title="${d.storedPath || d.originalPath}">${d.storedPath || d.originalPath}</p>
+           <span class="badge badge-xs gap-1 ${d.urgency === 'critical' ? 'badge-error' : d.urgency === 'high' ? 'badge-warning' : 'badge-ghost'}">
+            ${d.urgency}</span>
+           ${d.taxRelevant ? html`<span class="badge badge-xs badge-warning">Tax</span>` : ''}
+           ${d.status === 'error' ? html`<span class="badge badge-xs badge-error">Failed</span>` : ''}
+           ${d.status === 'pending' ? html`<span class="badge badge-xs badge-info">Pending</span>` : ''}
+          </div>
         </div>
+         <div class="flex items-center gap-1">
+          ${!this.analyzing ? html`
+           <button class="tooltip btn btn-square btn-ghost btn-sm" data-tip="${d.status === 'analyzed' ? 'Re-analyze' : 'Analyze'}" @click=${this._analyze}>
+            <icon-svg name="sparkles" size="16"></icon-svg>
+           </button>
+          ` : html`<span class="loading loading-spinner loading-sm mx-2"></span>`}
+          <button class="tooltip btn btn-square btn-ghost btn-sm" data-tip="Delete" @click=${this._deleteDoc}>
+           <icon-svg name="trash" size="16"></icon-svg>
+          </button>
+         </div>
+       </div>
       </div>
-     </div>
 
       <div role="tablist" class="tabs tabs-box bg-base-200 overflow-x-auto">
         <button role="tab" class="tab ${this.activeTab === 'summary' ? 'tab-active' : ''}" @click=${() => this.activeTab = 'summary'}>
@@ -179,7 +180,7 @@ export class DocumentDetail extends LitElement {
        <div class="bg-base-200 p-4 space-y-3">
         <div class="flex flex-wrap gap-3 text-sm">
          <div><span class="opacity-50">Category:</span> <strong>${d.category}</strong></div>
-         <div><span class="opacity-50">Year:</span> <strong>${d.year}</strong></div>
+          <div><span class="opacity-50">Year:</span> <strong>${d.year ?? 'Unknown'}</strong></div>
          ${d.month ? html`<div><span class="opacity-50">Month:</span> <strong>${d.month}</strong></div>` : ''}
          ${d.storedPath ? html`<div class="flex min-w-0 gap-1"><span class="opacity-50 shrink-0">Location:</span> <span class="truncate min-w-0 font-bold" title="${d.storedPath}">${d.storedPath}</span></div>` : ''}
         </div>

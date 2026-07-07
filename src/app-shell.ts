@@ -17,7 +17,6 @@ export class AppShell extends LitElement {
 
   private _router = new Router(this, [
     { path: this._base + '/', render: () => html`<dashboard-page></dashboard-page>` },
-    { path: this._base + '/scan', render: () => html`<scan-page></scan-page>` },
     { path: this._base + '/library', render: () => html`<library-page></library-page>` },
     { path: this._base + '/library/:id', render: () => html`<document-detail></document-detail>` },
     { path: this._base + '/settings', render: () => html`<settings-page></settings-page>` },
@@ -97,18 +96,6 @@ export class AppShell extends LitElement {
           >
             <icon-svg name="dashboard" size="20"></icon-svg>
             Dashboard
-          </button>
-
-          <button
-            class="w-full btn btn-ghost justify-start gap-3 ${this._isActive(
-              "/scan",
-            )
-              ? "btn-active"
-              : ""}"
-            @click=${() => this._navigate("/scan")}
-          >
-            <icon-svg name="scan" size="20"></icon-svg>
-            Scan
           </button>
 
           <button

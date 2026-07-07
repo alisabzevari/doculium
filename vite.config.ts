@@ -13,7 +13,11 @@ export default defineConfig({
     {
       name: 'cross-origin-headers',
       configureServer: (server) => {
-        server.middlewares.use((_req, res, next) => {
+        server.middlewares.use((req, res, next) => {
+          const url = req.url || '';
+          if (url.startsWith('/@vite/') || url.startsWith('/doculium/@vite/') || url === '/') {
+            return next();
+          }
           res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
           res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
           next();

@@ -4,10 +4,10 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import {
   Menu, LayoutDashboard, ScanSearch, Library, Settings,
   Trash2, ClipboardCheck, FileText, MessageSquare, Send,
-  Bot, PenSquare, Columns3, Database, Sun, Share2, Folder,
+  Bot, PenSquare, Columns3, Database, Sun, Share2, Folder, FolderOpen,
   Check, AlertCircle, RefreshCw, Image, File,
-  CheckCircle, Clock, AlertTriangle, ZoomOut, ZoomIn, Maximize2, Search,
-  ArrowUp, ArrowDown, Minus,
+  CheckCircle, CheckSquare, Clock, AlertTriangle, ZoomOut, ZoomIn, Maximize2, Search,
+  ArrowUp, ArrowDown, ArrowLeft, Minus, Sparkles, FileSearch,
 } from 'lucide';
 
 type IconData = [string, Record<string, string>][];
@@ -36,6 +36,7 @@ const ICONS: Record<string, IconData> = {
   image: Image as IconData,
   file: File as IconData,
   checkCircle: CheckCircle as IconData,
+  checkSquare: CheckSquare as IconData,
   clock: Clock as IconData,
   alertTriangle: AlertTriangle as IconData,
   zoomOut: ZoomOut as IconData,
@@ -44,7 +45,11 @@ const ICONS: Record<string, IconData> = {
   search: Search as IconData,
   arrowUp: ArrowUp as IconData,
   arrowDown: ArrowDown as IconData,
+  arrowLeft: ArrowLeft as IconData,
   minus: Minus as IconData,
+  sparkles: Sparkles as IconData,
+  fileSearch: FileSearch as IconData,
+  folderOpen: FolderOpen as IconData,
 };
 
 function lucideSvg(data: IconData, size: number): string {

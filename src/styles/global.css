@@ -10,7 +10,6 @@ app-shell {
 }
 
 dashboard-page,
-scan-page,
 library-page,
 document-detail,
 settings-page,
@@ -49,18 +48,6 @@ search-bar {
 .item + .item {
   border-top: 1px solid var(--fallback-bc, oklch(0 0 0 / 0.1));
 }
-
-.urgency-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.critical { background: var(--color-error); }
-.high { background: var(--color-warning); }
-.medium { background: var(--color-primary); }
-.low { background: var(--color-success); }
 
 .markdown-body h1 { font-size: 1.5rem; font-weight: 700; margin-top: 1.5rem; margin-bottom: 0.75rem; }
 .markdown-body h2 { font-size: 1.25rem; font-weight: 700; margin-top: 1.25rem; margin-bottom: 0.5rem; }

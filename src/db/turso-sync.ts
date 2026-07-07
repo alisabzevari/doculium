@@ -256,7 +256,7 @@ export async function syncDocuments(): Promise<{ pushed: number; pulled: number;
           urgency: (row.urgency as Document['urgency']) || 'medium',
           taxRelevant: (row.taxRelevant as number) === 1,
           category: row.category as string || '',
-          year: (row.year as number) || new Date().getFullYear(),
+          year: (row.year as number) || null,
           month: row.month as number | null || null,
           dateFrom: row.dateFrom as string | null || null,
           dateTo: row.dateTo as string | null || null,
