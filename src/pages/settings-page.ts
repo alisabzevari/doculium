@@ -7,10 +7,12 @@ import { initTurso, syncDocuments, getLastError } from '../db/turso-sync.ts';
 import type { Category } from '../db/schema.ts';
 import type { LocalProvider } from '../ai/local.ts';
 import { v4 as uuid } from 'uuid';
-import { pickAndSaveDirectory, getDirectoryName } from '../utils/handle-store.ts';
 import { type ToastNotification } from '../components/toast-notification.ts';
 import QRCode from 'qrcode';
 import { buildShareUrl } from '../utils/share-config.ts';
+import { getStorageProvider, getStorageConfig, saveStorageConfig, resetStorageProvider, recreateStorageProvider } from '../services/storage/registry.ts';
+import type { StorageConfig } from '../services/storage/types.ts';
+import { DropboxStorageProvider } from '../services/storage/dropbox.ts';
 
 @customElement('settings-page')
 export class SettingsPage extends LitElement {
@@ -27,6 +29,15 @@ export class SettingsPage extends LitElement {
   @state() private downloadPercent = 0;
   @state() private downloadStatus: '' | 'downloading' | 'done' | 'error' = '';
   @state() private shareQrDataUrl = '';
+  @state() private storageConfig: StorageConfig = { type: 'local' };
+  @state() private storageReady = false;
+  @state() private dropboxConnecting = false;
+  @state() private dropboxError = '';
+  @state() private dropboxAppKeyInput = '';
+  @state() private showFolderBrowser = false;
+  @state() private folderBrowserPath = '';
+  @state() private folderBrowserFolders: { name: string; path: string }[] = [];
+  @state() private folderBrowserLoading = false;
   @query('toast-notification') toast!: ToastNotification;
 
   async connectedCallback() {
@@ -34,7 +45,48 @@ export class SettingsPage extends LitElement {
     this.settings = await getSettings();
     document.documentElement.setAttribute('data-theme', this.settings.theme);
     this.categories = await db.categories.toArray();
-    this.folderName = getDirectoryName();
+
+    this.storageConfig = getStorageConfig();
+    this.dropboxAppKeyInput = this.storageConfig.dropboxAppKey || '';
+
+    const provider = await getStorageProvider();
+    this.storageReady = await provider.isReady();
+    if (this.storageConfig.type === 'local' && 'pickDirectory' in provider) {
+      const localProvider = provider as any;
+      this.folderName = localProvider.getDirectoryName();
+    } else if (this.storageConfig.type === 'dropbox') {
+      this.folderName = this.storageConfig.dropboxAccountName || null;
+    }
+
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get('code');
+    if (code && this.storageConfig.dropboxAppKey) {
+      await this._handleDropboxCallback(code);
+    }
+  }
+
+  private async _handleDropboxCallback(code: string) {
+    this.dropboxConnecting = true;
+    try {
+      const provider = await getStorageProvider();
+      const redirectUri = `${window.location.origin}${import.meta.env.BASE_URL}settings`;
+      const dropboxProvider = provider as DropboxStorageProvider;
+      await dropboxProvider.handleAuthRedirect(code, this.storageConfig.dropboxAppKey!, redirectUri);
+      this.storageConfig = getStorageConfig();
+      this.folderName = this.storageConfig.dropboxAccountName || null;
+      this.storageReady = true;
+      this.dropboxConnecting = false;
+      this.toast?.show('Connected to Dropbox');
+      await this._openFolderBrowser();
+
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('code');
+      cleanUrl.searchParams.delete('state');
+      window.history.replaceState({}, '', cleanUrl.toString());
+    } catch (err: any) {
+      this.dropboxError = err.message;
+      this.dropboxConnecting = false;
+    }
   }
 
   private async save() {
@@ -105,11 +157,120 @@ export class SettingsPage extends LitElement {
     this.categories = this.categories.filter(c => c.id !== id);
   }
 
-  private async _selectFolder() {
-    const result = await pickAndSaveDirectory();
-    if (result) {
-      this.folderName = result.name;
+  private async _selectLocalFolder() {
+    saveStorageConfig({ ...this.storageConfig, type: 'local' });
+    resetStorageProvider();
+    const provider = await getStorageProvider() as any;
+    if (provider.pickDirectory) {
+      const result = await provider.pickDirectory();
+      if (result) {
+        this.folderName = result.name;
+        this.storageConfig = getStorageConfig();
+        this.storageReady = true;
+      }
     }
+  }
+
+  private async _selectStorageType(e: Event) {
+    const type = (e.target as HTMLSelectElement).value as 'local' | 'dropbox';
+    this.storageConfig = { ...this.storageConfig, type };
+    saveStorageConfig(this.storageConfig);
+    resetStorageProvider();
+    this.storageReady = false;
+    this.dropboxError = '';
+    if (type === 'local') {
+      const provider = await getStorageProvider() as any;
+      if (provider.getDirectoryName) {
+        this.folderName = provider.getDirectoryName();
+      }
+      this.storageReady = await getStorageProvider().then(p => p.isReady());
+    } else {
+      this.folderName = this.storageConfig.dropboxAccountName || null;
+      this.storageReady = await getStorageProvider().then(p => p.isReady());
+    }
+  }
+
+  private async _connectDropbox() {
+    const appKey = this.dropboxAppKeyInput.trim();
+    if (!appKey) {
+      this.dropboxError = 'Please enter your Dropbox App Key';
+      return;
+    }
+    this.dropboxError = '';
+    this.dropboxConnecting = true;
+
+    saveStorageConfig({ ...this.storageConfig, dropboxAppKey: appKey });
+    this.storageConfig = getStorageConfig();
+    resetStorageProvider();
+
+    try {
+      const provider = await getStorageProvider() as DropboxStorageProvider;
+      const redirectUri = `${window.location.origin}${import.meta.env.BASE_URL}settings`;
+      const authUrl = await provider.getAuthUrl(appKey, redirectUri);
+      window.location.href = authUrl;
+    } catch (err: any) {
+      this.dropboxError = err.message;
+      this.dropboxConnecting = false;
+    }
+  }
+
+  private async _disconnectDropbox() {
+    this.storageConfig = {
+      ...this.storageConfig,
+      dropboxAccessToken: undefined,
+      dropboxRefreshToken: undefined,
+      dropboxTokenExpiresAt: undefined,
+      dropboxAccountName: undefined,
+      dropboxPath: undefined,
+    };
+    saveStorageConfig(this.storageConfig);
+    resetStorageProvider();
+    this.folderName = null;
+    this.storageReady = false;
+    this.toast?.show('Disconnected from Dropbox');
+  }
+
+  private _updateFolderName() {
+    if (this.storageConfig.type === 'dropbox' && this.storageConfig.dropboxAccessToken) {
+      const path = this.storageConfig.dropboxPath || '';
+      this.folderName = path ? path : '(root)';
+    } else if (this.storageConfig.type === 'local') {
+      this.folderName = this.storageConfig.localFolderName || null;
+    }
+  }
+
+  private async _openFolderBrowser() {
+    this.showFolderBrowser = true;
+    this.folderBrowserPath = '';
+    await this._loadFolderBrowser('');
+  }
+
+  private async _loadFolderBrowser(relPath: string) {
+    this.folderBrowserLoading = true;
+    this.folderBrowserPath = relPath;
+    try {
+      const provider = await getStorageProvider() as DropboxStorageProvider;
+      this.folderBrowserFolders = await provider.listFolders(relPath);
+    } catch {
+      this.folderBrowserFolders = [];
+    }
+    this.folderBrowserLoading = false;
+  }
+
+  private async _navigateDropboxFolder(path: string) {
+    await this._loadFolderBrowser(path);
+  }
+
+  private async _selectDropboxFolder() {
+    const path = this.folderBrowserPath || '';
+    this.storageConfig = { ...this.storageConfig, dropboxPath: path };
+    saveStorageConfig(this.storageConfig);
+    resetStorageProvider();
+    await getStorageProvider();
+    this.showFolderBrowser = false;
+    this._updateFolderName();
+    this.storageReady = true;
+    this.toast?.show(`Dropbox folder set to ${path || '(root)'}`);
   }
 
   private async _downloadLocalModel() {
@@ -139,7 +300,6 @@ export class SettingsPage extends LitElement {
 
   private async _clearModelCache() {
     if (!this.settings) return;
-    const cacheName = 'webllm';
     const keys = await caches.keys();
     await Promise.all(keys.filter(k => k.startsWith('webllm') || k.includes('mlc') || k.includes('web-llm')).map(k => caches.delete(k)));
     const provider = await getAIProvider() as LocalProvider | null;
@@ -357,21 +517,112 @@ export class SettingsPage extends LitElement {
         ${this.activeTab === 'storage' ? html`
           <div class="bg-base-200 p-4 space-y-4">
             <div>
-              <label class="label">Document Folder</label>
-              <div class="flex items-center gap-3">
-                <button class="tooltip btn btn-primary" data-tip="Select document folder" @click=${this._selectFolder}>
-                  <icon-svg name="folder" size="16"></icon-svg>
-                  ${this.folderName ? 'Change Folder' : 'Select Folder'}
-                </button>
-                ${this.folderName ? html`
-                  <span class="text-sm opacity-70">${this.folderName}</span>
-                ` : html`
-                  <span class="text-sm text-warning">No folder selected</span>
-                `}
-              </div>
-              <p class="text-xs opacity-50 mt-2">The selected folder is used across the app for scanning and viewing documents.</p>
+              <label class="label">Storage Type</label>
+              <select class="select w-full" .value=${this.storageConfig.type} @change=${this._selectStorageType}>
+                <option value="local">Local Folder</option>
+                <option value="dropbox">Dropbox</option>
+              </select>
             </div>
+
+            ${this.storageConfig.type === 'local' ? html`
+              <div>
+                <label class="label">Document Folder</label>
+                <div class="flex items-center gap-3">
+                  <button class="tooltip btn btn-primary" data-tip="Select document folder" @click=${this._selectLocalFolder}>
+                    <icon-svg name="folder" size="16"></icon-svg>
+                    ${this.folderName ? 'Change Folder' : 'Select Folder'}
+                  </button>
+                  ${this.folderName ? html`
+                    <span class="text-sm opacity-70">${this.folderName}</span>
+                  ` : html`
+                    <span class="text-sm text-warning">No folder selected</span>
+                  `}
+                </div>
+                <p class="text-xs opacity-50 mt-2">The selected folder is used across the app for scanning and viewing documents.</p>
+              </div>
+            ` : html`
+              <div>
+                <label class="label">Dropbox App Key</label>
+                <input class="input w-full" type="text" .value=${this.dropboxAppKeyInput}
+                  @input=${(e: Event) => this.dropboxAppKeyInput = (e.target as HTMLInputElement).value}
+                  placeholder="Your Dropbox app key" />
+                <p class="text-xs opacity-50 mt-1">
+                  Create an app at
+                  <a href="https://www.dropbox.com/developers/apps" target="_blank" class="link link-primary">Dropbox Developer Console</a>
+                  and enter the App Key above.
+                </p>
+              </div>
+
+              ${this.storageConfig.dropboxAccessToken ? html`
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="badge badge-success badge-sm">Connected</span>
+                    <span class="text-sm opacity-70">${this.storageConfig.dropboxAccountName || 'Dropbox'}</span>
+                    <button class="btn btn-ghost btn-xs text-error" @click=${this._disconnectDropbox}>Disconnect</button>
+                  </div>
+                </div>
+
+                <div class="bg-base-300 p-3 rounded-box space-y-2">
+                  <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <label class="label text-xs py-0">Document Folder</label>
+                      <p class="text-sm font-mono truncate max-w-[250px]" title="${this.folderBrowserPath || this.storageConfig.dropboxPath || '(root)'}">
+                        ${this.storageConfig.dropboxPath ? '/' + this.storageConfig.dropboxPath : '/'}
+                      </p>
+                    </div>
+                    <button class="btn btn-primary btn-sm" @click=${this._openFolderBrowser}>
+                      <icon-svg name="folder" size="14"></icon-svg>
+                      Change Folder
+                    </button>
+                  </div>
+                </div>
+
+                ${this.showFolderBrowser ? html`
+                  <div class="bg-base-300 p-3 rounded-box space-y-2 max-h-64 overflow-y-auto">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-xs font-semibold opacity-70">Select folder</span>
+                      <button class="btn btn-ghost btn-xs" @click=${() => { this.showFolderBrowser = false; }}>Cancel</button>
+                    </div>
+                    <p class="text-xs font-mono opacity-60">/${this.folderBrowserPath}</p>
+                    <div class="space-y-1">
+                      ${this.folderBrowserPath ? html`
+                        <button class="btn btn-ghost btn-xs w-full justify-start gap-2" @click=${() => this._navigateDropboxFolder(this.folderBrowserPath.split('/').slice(0, -1).join('/'))}>
+                          <icon-svg name="arrowUp" size="14"></icon-svg>
+                          ..
+                        </button>
+                      ` : ''}
+                      ${this.folderBrowserLoading ? html`
+                        <div class="flex justify-center py-4"><span class="loading loading-spinner loading-xs"></span></div>
+                      ` : this.folderBrowserFolders.length === 0 ? html`
+                        <p class="text-xs opacity-50 text-center py-4">No subfolders</p>
+                      ` : this.folderBrowserFolders.map(f => html`
+                        <button class="btn btn-ghost btn-xs w-full justify-start gap-2" @click=${() => this._navigateDropboxFolder(f.path)}>
+                          <icon-svg name="folder" size="14"></icon-svg>
+                          ${f.name}
+                        </button>
+                      `)}
+                    </div>
+                    <button class="btn btn-primary btn-sm w-full mt-2" @click=${this._selectDropboxFolder}>
+                      Use this folder
+                    </button>
+                  </div>
+                ` : ''}
+              ` : html`
+                ${this.dropboxError ? html`<p class="text-xs text-error">${this.dropboxError}</p>` : ''}
+                <button class="btn btn-primary" ?disabled=${this.dropboxConnecting || !this.dropboxAppKeyInput.trim()} @click=${this._connectDropbox}>
+                  ${this.dropboxConnecting ? html`<span class="loading loading-spinner loading-xs"></span>` : ''}
+                  ${this.dropboxConnecting ? 'Connecting...' : 'Connect to Dropbox'}
+                </button>
+                <p class="text-xs opacity-70 mt-2">
+                  You will be redirected to Dropbox to authorize. Make sure your Dropbox app has
+                  <code class="bg-base-300 px-1 rounded">${window.location.origin}${import.meta.env.BASE_URL}settings</code>
+                  as a redirect URI.
+                </p>
+              `}
+            `}
+
             <hr class="border-base-300">
+
             <div>
               <label class="label">Turso Database URL</label>
               <input class="input w-full" type="url" .value=${this.settings.tursoUrl}

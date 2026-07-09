@@ -35,6 +35,12 @@ export async function findDocumentByHash(
   return db.documents.where("fileHash").equals(hash).first();
 }
 
+export async function findDocumentByDropboxHash(
+  hash: string,
+): Promise<Document | undefined> {
+  return db.documents.filter(d => d.dropboxContentHash === hash).first();
+}
+
 export async function getDocumentsByCategory(
   category: string,
 ): Promise<Document[]> {

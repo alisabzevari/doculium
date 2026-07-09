@@ -2,7 +2,6 @@ import { LitElement, html } from 'lit';
 import { customElement, state, query } from 'lit/decorators.js';
 import { getAllDocuments, getDocument, searchDocuments, getDocumentsByYear, getYearCounts, getCategoryNames, getCategoryCountsForYear, getStats, deleteAllDocuments, addAnalysisJob, resetDocumentForAnalysis } from '../db/document-store.ts';
 import { processQueue } from '../services/analysis-queue.ts';
-import { getDirectoryHandle } from '../utils/handle-store.ts';
 import { db } from '../db/schema.ts';
 import type { Document } from '../db/schema.ts';
 import type { ConfirmDialog } from '../components/confirm-dialog.ts';
@@ -143,9 +142,8 @@ export class LibraryPage extends LitElement {
         updatedAt: now,
       });
     }
-    const dirHandle = await getDirectoryHandle();
     try {
-      await processQueue(dirHandle, pending.map(d => d.id), () => {
+      await processQueue(pending.map(d => d.id), () => {
         this.requestUpdate();
       });
     } catch {}
@@ -218,9 +216,8 @@ export class LibraryPage extends LitElement {
         updatedAt: now,
       });
     }
-    const dirHandle = await getDirectoryHandle();
     try {
-      await processQueue(dirHandle, docs.map(d => d.id), () => {
+      await processQueue(docs.map(d => d.id), () => {
         this.requestUpdate();
       });
     } catch {}

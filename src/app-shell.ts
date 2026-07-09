@@ -23,6 +23,7 @@ export class AppShell extends LitElement {
     { path: this._base + '/library', render: () => html`<library-page></library-page>` },
     { path: this._base + '/library/:id', render: () => html`<document-detail></document-detail>` },
     { path: this._base + '/settings', render: () => html`<settings-page></settings-page>` },
+    { path: this._base + '/share/:id', render: () => html`<share-page></share-page>` },
   ]);
 
   async connectedCallback() {

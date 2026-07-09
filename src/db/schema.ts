@@ -26,6 +26,7 @@ export interface Document {
   createdAt: string;
   updatedAt: string;
   syncedAt: string | null;
+  dropboxContentHash?: string;
 }
 
 export interface ActionItem {

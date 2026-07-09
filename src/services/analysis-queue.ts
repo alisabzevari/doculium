@@ -6,11 +6,11 @@ import {
   addActionItem,
 } from '../db/document-store.ts';
 import { analyzeDocument, improveText } from '../ai/analyzer.ts';
-import { organizeFile } from '../services/file-operations.ts';
 import type { AnalysisResult } from '../ai/types.ts';
 import { db } from '../db/schema.ts';
 import { v4 as uuid } from 'uuid';
 import { getSettings } from '../db/config-store.ts';
+import { getStorageProvider } from './storage/registry.ts';
 
 function dateFromResult(r: AnalysisResult): string {
   if (r.dateFrom) return r.dateFrom.slice(0, 10);
@@ -31,7 +31,6 @@ export type QueueCallback = (progress: {
 }) => void;
 
 export async function processQueue(
-  dirHandle: FileSystemDirectoryHandle | null,
   docIds?: string[],
   onProgress?: QueueCallback,
 ): Promise<void> {
@@ -117,24 +116,31 @@ export async function processQueue(
         completedAt: new Date().toISOString(),
       });
 
-      if (dirHandle && result.suggestedFilename && !doc.storedPath) {
+      if (result.suggestedFilename && !doc.storedPath) {
         try {
-          const datePrefix = dateFromResult(result);
-          const datedFilename = datePrefix
-            ? `${datePrefix}-${result.suggestedFilename}`
-            : result.suggestedFilename;
+          const provider = await getStorageProvider();
+          if (await provider.isReady()) {
+            const datePrefix = dateFromResult(result);
+            const datedFilename = datePrefix
+              ? `${datePrefix}-${result.suggestedFilename}`
+              : result.suggestedFilename;
 
-          const sourceFileHandle = await dirHandle.getFileHandle(doc.originalName);
-          const sourceFile = await sourceFileHandle.getFile();
-          const storedPath = await organizeFile(
-            dirHandle,
-            sourceFile,
-            result.year,
-            category,
-            datedFilename,
-          );
-          await dirHandle.removeEntry(doc.originalName);
-          await updateDocument(doc.id, { storedPath });
+            const sourceFile = await provider.getFile(doc.originalPath);
+            const storedPath = await provider.organizeFile(
+              sourceFile,
+              result.year,
+              category,
+              datedFilename,
+            );
+
+            try {
+              await provider.deleteFile(doc.originalPath);
+            } catch {
+              // original file may not exist anymore
+            }
+
+            await updateDocument(doc.id, { storedPath });
+          }
         } catch {
           // file organization failed silently — doc is still analyzed
         }

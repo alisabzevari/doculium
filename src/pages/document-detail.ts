@@ -4,7 +4,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
 import { getDocument, getActionItemsByDocument, deleteDocument, addAnalysisJob, updateDocument, resetDocumentForAnalysis } from '../db/document-store.ts';
 import { processQueue } from '../services/analysis-queue.ts';
-import { getDirectoryHandle, getDocumentFile, hasDirectoryHandle } from '../utils/handle-store.ts';
+import { getStorageProvider } from '../services/storage/registry.ts';
 import type { Document, ActionItem } from '../db/schema.ts';
 import { v4 as uuid } from 'uuid';
 
@@ -42,7 +42,8 @@ export class DocumentDetail extends LitElement {
    this.doc = await getDocument(id) ?? null;
    if (this.doc) {
     await this._loadActionItems();
-    this.noHandle = !(await hasDirectoryHandle());
+    const provider = await getStorageProvider();
+    this.noHandle = !(await provider.isReady());
     if (!this.noHandle) {
       await this._loadFile();
     }
@@ -62,17 +63,16 @@ export class DocumentDetail extends LitElement {
   }
  }
 
- private async _loadFile() {
-  if (!this.doc) return;
-  try {
-   this.docFile = await getDocumentFile(this.doc);
-   if (!this.docFile) {
-    this.fileError = 'File not found in the selected folder. It may have been moved or deleted.';
+   private async _loadFile() {
+    if (!this.doc) return;
+    try {
+     const provider = await getStorageProvider();
+     const filePath = this.doc.storedPath || this.doc.originalPath;
+     this.docFile = await provider.getFile(filePath);
+    } catch (err: any) {
+     this.fileError = err?.message || 'File not found in the selected folder. It may have been moved or deleted.';
+    }
    }
-  } catch {
-   this.fileError = 'Could not read the file. The folder may no longer be accessible.';
-  }
- }
 
   private async _deleteDoc() {
     if (!this.doc) return;
@@ -105,9 +105,8 @@ export class DocumentDetail extends LitElement {
       createdAt: now,
       updatedAt: now,
     });
-    const dirHandle = await getDirectoryHandle();
     try {
-      await processQueue(dirHandle, [this.doc.id], (p) => {
+      await processQueue([this.doc.id], (p) => {
         this.requestUpdate();
       });
     } catch {}

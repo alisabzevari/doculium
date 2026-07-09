@@ -30,8 +30,8 @@ export default defineConfig({
       configureServer(server) {
         const cmapsPath = join(process.cwd(), 'node_modules/pdfjs-dist/cmaps');
         const fontsPath = join(process.cwd(), 'node_modules/pdfjs-dist/standard_fonts');
-        const serveDir = (basePath, fsPath) => {
-          server.middlewares.use(basePath, (_req, res) => {
+        const serveDir = (basePath: string, fsPath: string) => {
+          server.middlewares.use(basePath, (_req: any, res: any) => {
             const url = new URL(_req.url, `http://${_req.headers.host}`);
             const file = join(fsPath, url.pathname.replace(basePath, ''));
             if (existsSync(file)) {
@@ -66,7 +66,10 @@ export default defineConfig({
     },
     tailwindcss(),
     VitePWA({
-        registerType: 'prompt',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      registerType: 'prompt',
       scope: '/doculium/',
       includeAssets: ['icons/*.svg', 'logo.png'],
       manifest: {
@@ -86,28 +89,23 @@ export default defineConfig({
             type: 'image/png',
           },
         ],
+        share_target: {
+          action: '/doculium/share',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            files: [
+              { name: 'file', accept: ['application/pdf', 'image/png', 'image/jpeg', 'text/plain'] },
+            ],
+          },
+        } as any,
+      },
+      injectManifest: {
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.(?:js|css|html|svg|png|ico)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'static-assets',
-              expiration: { maxEntries: 50, maxAgeSeconds: 30 * 24 * 60 * 60 },
-            },
-          },
-          {
-            urlPattern: /\/pdfjs-(?:cmaps|stdfonts)\//,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'pdfjs-assets',
-              expiration: { maxEntries: 200, maxAgeSeconds: 365 * 24 * 60 * 60 },
-            },
-          },
-        ],
       },
     }),
   ],

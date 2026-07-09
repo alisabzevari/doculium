@@ -4,7 +4,6 @@ import type { Document } from '../db/schema.ts';
 import { db } from '../db/schema.ts';
 import { addAnalysisJob, resetDocumentForAnalysis } from '../db/document-store.ts';
 import { processQueue } from '../services/analysis-queue.ts';
-import { getDirectoryHandle } from '../utils/handle-store.ts';
 import { v4 as uuid } from 'uuid';
 
 @customElement('document-card')
@@ -41,8 +40,7 @@ export class DocumentCard extends LitElement {
       createdAt: now,
       updatedAt: now,
     });
-    const dirHandle = await getDirectoryHandle();
-    await processQueue(dirHandle, [this.document.id], (p) => {
+    await processQueue([this.document.id], (p) => {
       if (p.status === 'analyzed') {
         this.document.status = 'analyzed';
         this.analyzing = false;

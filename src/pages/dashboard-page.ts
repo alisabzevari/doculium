@@ -2,7 +2,7 @@ import { LitElement, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { getPendingActionItems, getStats, getRecentDocuments } from '../db/document-store.ts';
 import type { ActionItem, Document } from '../db/schema.ts';
-import { getDirectoryHandle, getDirectoryName } from '../utils/handle-store.ts';
+import { getStorageProvider, getStorageConfig } from '../services/storage/registry.ts';
 import { scanAndImport, type ScanProgress } from '../services/bulk-import.ts';
 
 @customElement('dashboard-page')
@@ -18,9 +18,10 @@ export class DashboardPage extends LitElement {
 
  async connectedCallback() {
   super.connectedCallback();
-  this.folderName = getDirectoryName();
-  const handle = await getDirectoryHandle();
-  this.noFolder = !handle;
+  const config = getStorageConfig();
+  this.folderName = config.type === 'local' ? config.localFolderName || null : 'Dropbox';
+  const provider = await getStorageProvider();
+  this.noFolder = !(await provider.isReady());
   await this._refresh();
  }
 
@@ -31,15 +32,15 @@ export class DashboardPage extends LitElement {
  }
 
  async startScan() {
-  const handle = await getDirectoryHandle();
-  if (!handle) {
+  const provider = await getStorageProvider();
+  if (!(await provider.isReady())) {
    this.noFolder = true;
    return;
   }
   this.scanning = true;
   this.scanProgress = null;
   try {
-   const result = await scanAndImport(handle, (p) => {
+   const result = await scanAndImport((p) => {
     this.scanProgress = { ...p };
     this.requestUpdate();
    });

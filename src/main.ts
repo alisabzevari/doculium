@@ -4,6 +4,7 @@ import './pages/dashboard-page.ts';
 import './pages/library-page.ts';
 import './pages/document-detail.ts';
 import './pages/settings-page.ts';
+import './pages/share-page.ts';
 import './components/document-card.ts';
 import './components/action-item-list.ts';
 import './components/search-bar.ts';
@@ -42,3 +43,12 @@ async function handleSharedConfig() {
 }
 
 handleSharedConfig();
+
+const redirect = sessionStorage.getItem('redirect');
+if (redirect) {
+  sessionStorage.removeItem('redirect');
+  const url = new URL(redirect);
+  window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+  // notify router
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
