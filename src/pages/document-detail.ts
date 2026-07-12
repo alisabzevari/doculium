@@ -7,6 +7,7 @@ import { processQueue } from '../services/analysis-queue.ts';
 import { getStorageProvider } from '../services/storage/registry.ts';
 import type { Document, ActionItem } from '../db/schema.ts';
 import { v4 as uuid } from 'uuid';
+import { stripCodeFence } from '../utils/markdown.ts';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -76,7 +77,7 @@ export class DocumentDetail extends LitElement {
 
   private async _deleteDoc() {
     if (!this.doc) return;
-    const ok = await this.confirmDialog.confirm(`Delete "${this.doc.originalName}"? This cannot be undone.`);
+    const ok = await this.confirmDialog.confirm(`Delete "${this.doc.suggestedFilename || this.doc.originalName}"? This cannot be undone.`);
     if (!ok) return;
     await deleteDocument(this.doc.id);
     window.dispatchEvent(new CustomEvent('navigate', { detail: { path: '/library' } }));
@@ -131,7 +132,7 @@ export class DocumentDetail extends LitElement {
       <div class="bg-base-200 p-4 rounded-box">
        <div class="flex items-start justify-between gap-3 flex-wrap">
          <div class="min-w-0 flex-1">
-          <h1 class="text-lg font-bold truncate" title="${d.originalName}">${d.originalName}</h1>
+           <h1 class="text-lg font-bold truncate" title="${d.suggestedFilename || d.originalName}">${d.suggestedFilename || d.originalName}</h1>
           <div class="flex items-center gap-2 mt-1 flex-wrap">
            <p class="text-xs opacity-50 truncate" title="${d.storedPath || d.originalPath}">${d.storedPath || d.originalPath}</p>
            <span class="badge badge-xs gap-1 ${d.urgency === 'critical' ? 'badge-error' : d.urgency === 'high' ? 'badge-warning' : 'badge-ghost'}">
@@ -238,7 +239,7 @@ export class DocumentDetail extends LitElement {
        <div class="bg-base-200 p-4">
         ${d.extractedText ? html`
          <div class="markdown-body text-sm overflow-auto max-h-[70vh] leading-relaxed">
-          ${unsafeHTML(marked.parse(d.extractedText) as string)}
+           ${unsafeHTML(marked.parse(stripCodeFence(d.extractedText)) as string)}
          </div>
         ` : html`
          <p class="text-sm opacity-50 text-center py-8">No extracted text available.</p>

@@ -72,7 +72,8 @@ export class DocumentCard extends LitElement {
 
   render() {
     const d = this.document;
-    const ext = d.originalName.split('.').pop()?.toLowerCase() || '';
+    const displayName = d.suggestedFilename || d.originalName;
+    const ext = displayName.split('.').pop()?.toLowerCase() || '';
 
     return html`
       <div class="card card-compact bg-base-200 border border-base-300 cursor-pointer transition-shadow hover:shadow-md ${this._urgencyBorder(d)} ${this.selected ? 'ring-2 ring-primary' : ''}">
@@ -83,7 +84,7 @@ export class DocumentCard extends LitElement {
                 <input type="checkbox" class="checkbox checkbox-xs mt-0.5 shrink-0" .checked=${this.selected}
                   @click=${(e: Event) => { e.stopPropagation(); this.dispatchEvent(new CustomEvent('toggle-select', { bubbles: true, composed: true, detail: { id: this.document.id } })); }}>
               ` : ''}
-              <p class="font-medium text-sm leading-tight truncate" title="${d.originalName}">${d.originalName}</p>
+              <p class="font-medium text-sm leading-tight truncate" title="${displayName}">${displayName}</p>
             </div>
             ${d.status === 'analyzed' ? html`
               <span class="badge badge-xs badge-success shrink-0">Done</span>

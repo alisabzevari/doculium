@@ -6,6 +6,7 @@ import { chatWithDocument } from '../ai/analyzer.ts';
 import { getChatMessages, addChatMessage, clearChatMessages, addActionItem, markActionItemDone, getActionItemsByDocument } from '../db/document-store.ts';
 import { v4 as uuid } from 'uuid';
 import type { ToolDefinition, ToolCall, ChatMessage } from '../ai/types.ts';
+import { stripCodeFence } from '../utils/markdown.ts';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -203,7 +204,7 @@ export class DocumentChat extends LitElement {
 
   private _renderMarkdown(text: string): string {
     try {
-      return marked.parse(text) as string;
+      return marked.parse(stripCodeFence(text)) as string;
     } catch {
       return text;
     }

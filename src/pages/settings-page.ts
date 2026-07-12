@@ -485,6 +485,13 @@ export class SettingsPage extends LitElement {
                 @change=${(e: Event) => { const v = (e.target as HTMLTextAreaElement).value; this.settings = this.settings ? { ...this.settings, chatPrompt: v } : null; }}>
               </textarea>
             </div>
+            <div>
+              <label class="label">Improve Text Prompt</label>
+              <p class="text-xs opacity-50 mb-2">Used to convert raw extracted PDF text into clean markdown before analysis.</p>
+              <textarea class="textarea w-full font-mono text-xs leading-relaxed" rows="10" .value=${this.settings.improvePrompt}
+                @change=${(e: Event) => { const v = (e.target as HTMLTextAreaElement).value; this.settings = this.settings ? { ...this.settings, improvePrompt: v } : null; }}>
+              </textarea>
+            </div>
             <button class="tooltip btn btn-primary" data-tip="Save prompts" @click=${this.save}>Save Prompts</button>
           </div>
         ` : ''}

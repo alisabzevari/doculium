@@ -3,7 +3,7 @@ import { customElement, state } from 'lit/decorators.js';
 import { getPendingActionItems, getStats, getRecentDocuments } from '../db/document-store.ts';
 import type { ActionItem, Document } from '../db/schema.ts';
 import { getStorageProvider, getStorageConfig } from '../services/storage/registry.ts';
-import { scanAndImport, type ScanProgress } from '../services/bulk-import.ts';
+import { scanAndImport, scanAndImportRoot, type ScanProgress } from '../services/bulk-import.ts';
 
 @customElement('dashboard-page')
 export class DashboardPage extends LitElement {
@@ -31,24 +31,43 @@ export class DashboardPage extends LitElement {
   this.recentDocs = await getRecentDocuments(6);
  }
 
- async startScan() {
-  const provider = await getStorageProvider();
-  if (!(await provider.isReady())) {
-   this.noFolder = true;
-   return;
+  async startScan() {
+    const provider = await getStorageProvider();
+    if (!(await provider.isReady())) {
+      this.noFolder = true;
+      return;
+    }
+    this.scanning = true;
+    this.scanProgress = null;
+    try {
+      const result = await scanAndImport((p) => {
+        this.scanProgress = { ...p };
+        this.requestUpdate();
+      });
+      await this._refresh();
+    } catch {}
+    this.scanning = false;
+    this.scanProgress = null;
   }
-  this.scanning = true;
-  this.scanProgress = null;
-  try {
-   const result = await scanAndImport((p) => {
-    this.scanProgress = { ...p };
-    this.requestUpdate();
-   });
-   await this._refresh();
-  } catch {}
-  this.scanning = false;
-  this.scanProgress = null;
- }
+
+  async startQuickScan() {
+    const provider = await getStorageProvider();
+    if (!(await provider.isReady())) {
+      this.noFolder = true;
+      return;
+    }
+    this.scanning = true;
+    this.scanProgress = null;
+    try {
+      const result = await scanAndImportRoot((p) => {
+        this.scanProgress = { ...p };
+        this.requestUpdate();
+      });
+      await this._refresh();
+    } catch {}
+    this.scanning = false;
+    this.scanProgress = null;
+  }
 
   render() {
    const incompleteItems = this.actionItems.filter(i => !i.completed);
@@ -58,10 +77,16 @@ export class DashboardPage extends LitElement {
      <div class="flex items-center justify-between flex-wrap gap-2">
       <h1 class="text-2xl font-bold">Dashboard</h1>
       ${!this.scanning ? html`
-       <button class="tooltip btn btn-primary btn-sm" data-tip="Scan document folder for new files" @click=${this.startScan} ?disabled=${this.noFolder}>
-        <icon-svg name="scan" size="16"></icon-svg>
-        ${this.noFolder ? 'No folder set' : 'Scan for new files'}
-       </button>
+       <div class="flex gap-2">
+        <button class="tooltip btn btn-primary btn-sm" data-tip="Scan entire folder tree for new files" @click=${this.startScan} ?disabled=${this.noFolder}>
+         <icon-svg name="scan" size="16"></icon-svg>
+         ${this.noFolder ? 'No folder set' : 'Scan for new files'}
+        </button>
+        <button class="tooltip btn btn-secondary btn-sm" data-tip="Scan only root-level files and organize them" @click=${this.startQuickScan} ?disabled=${this.noFolder}>
+         <icon-svg name="folder-open" size="16"></icon-svg>
+         Quick scan
+        </button>
+       </div>
       ` : ''}
      </div>
 

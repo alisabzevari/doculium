@@ -1,5 +1,5 @@
 import { extractTextFromPDF } from '../utils/pdf-parser.ts';
-import { addDocument, findDocumentByHash, findDocumentByDropboxHash, updateDocument } from '../db/document-store.ts';
+import { addDocument, findDocumentByHash, findDocumentByDropboxHash, updateDocument, addAnalysisJob } from '../db/document-store.ts';
 import { v4 as uuid } from 'uuid';
 import { getStorageProvider } from './storage/registry.ts';
 import { computeFileHash, readFileAsText } from './storage/utils.ts';
@@ -99,6 +99,113 @@ export async function scanAndImport(
             tags: [], confidence: 0, status: 'pending', error: null,
             createdAt: now, updatedAt: now, syncedAt: null,
           });
+          return true;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (let j = 0; j < batch.length; j++) {
+      const r = results[j];
+      if (r.status === 'fulfilled' && r.value !== null) {
+        imported++;
+      } else {
+        skipped++;
+      }
+      onProgress?.({ total, current: i + j + 1, currentFile: batch[j].name, imported, skipped });
+    }
+  }
+
+  return { imported, skipped };
+}
+
+export async function scanAndImportRoot(
+  onProgress?: (p: ScanProgress) => void,
+): Promise<{ imported: number; skipped: number }> {
+  const provider = await getStorageProvider();
+  if (!(await provider.isReady())) {
+    throw new Error('No storage configured. Go to Settings > Storage to set up.');
+  }
+
+  const rootEntries: { path: string; name: string; type: string; hash?: string; size: number }[] = [];
+  for await (const entry of provider.walkDirectory('', false)) {
+    rootEntries.push({
+      path: entry.path,
+      name: entry.name,
+      type: entry.type,
+      hash: entry.hash,
+      size: entry.size,
+    });
+  }
+
+  const total = rootEntries.length;
+  let imported = 0;
+  let skipped = 0;
+  const CONCURRENCY = 3;
+
+  for (let i = 0; i < rootEntries.length; i += CONCURRENCY) {
+    const batch = rootEntries.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(async (entry) => {
+        try {
+          if (entry.hash) {
+            const existing = await findDocumentByDropboxHash(entry.hash);
+            if (existing) return null;
+          }
+
+          const file = await provider.getFile(entry.path);
+          const hash = await computeFileHash(file);
+
+          const existing = await findDocumentByHash(hash);
+          if (existing) {
+            if (entry.hash && !existing.dropboxContentHash) {
+              await updateDocument(existing.id, { dropboxContentHash: entry.hash });
+            }
+            return null;
+          }
+
+          let extractedText = '';
+          if (file.type === 'application/pdf' || entry.name.toLowerCase().endsWith('.pdf')) {
+            try { extractedText = await extractTextFromPDF(file); } catch { extractedText = '[PDF text extraction failed]'; }
+          } else {
+            try { extractedText = await readFileAsText(file); } catch { extractedText = ''; }
+          }
+
+          const now = new Date().toISOString();
+          const docId = uuid();
+          await addDocument({
+            id: docId,
+            originalName: entry.name,
+            originalPath: entry.path,
+            storedPath: null,
+            fileType: entry.type,
+            fileSize: entry.size,
+            fileHash: hash,
+            dropboxContentHash: entry.hash,
+            extractedText,
+            summary: '', audience: '', urgency: 'medium', taxRelevant: false,
+            category: '',
+            year: null,
+            month: null, dateFrom: null, dateTo: null, suggestedFilename: null,
+            tags: [], confidence: 0, status: 'pending', error: null,
+            createdAt: now, updatedAt: now, syncedAt: null,
+          });
+
+          await addAnalysisJob({
+            id: uuid(),
+            documentId: docId,
+            status: 'queued',
+            provider: '',
+            model: '',
+            promptTokens: 0,
+            completionTokens: 0,
+            error: null,
+            startedAt: null,
+            completedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          });
+
           return true;
         } catch {
           return null;

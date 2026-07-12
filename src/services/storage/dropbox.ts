@@ -172,7 +172,7 @@ export class DropboxStorageProvider implements StorageProvider {
     return rawPath.replace(/^\/+/, '');
   }
 
-  async *walkDirectory(path: string): AsyncGenerator<FileEntry> {
+  async *walkDirectory(path: string, recursive: boolean = true): AsyncGenerator<FileEntry> {
     const root = this._rootPath();
     const apiPath = root + (path ? '/' + path : '');
     let cursor: string | null = null;
@@ -185,7 +185,7 @@ export class DropboxStorageProvider implements StorageProvider {
       } else {
         result = await this._api('/files/list_folder', {
           path: apiPath || '',
-          recursive: true,
+          recursive,
           include_media_info: false,
           include_deleted: false,
           include_has_explicit_shared_members: false,

@@ -109,7 +109,7 @@ export class LocalStorageProvider implements StorageProvider {
     }
   }
 
-  async *walkDirectory(path: string) {
+  async *walkDirectory(path: string, recursive: boolean = true) {
     const handle = await this._getHandle();
     let rootHandle = handle;
     if (path) {
@@ -118,7 +118,11 @@ export class LocalStorageProvider implements StorageProvider {
         if (part) rootHandle = await rootHandle.getDirectoryHandle(part);
       }
     }
-    yield* this._walk(rootHandle, path ? path + '/' : '');
+    if (recursive) {
+      yield* this._walk(rootHandle, path ? path + '/' : '');
+    } else {
+      yield* this._walkFlat(rootHandle, path ? path + '/' : '');
+    }
   }
 
   private async *_walk(dirHandle: FileSystemDirectoryHandle, prefix: string): AsyncGenerator<FileEntry> {
@@ -136,6 +140,21 @@ export class LocalStorageProvider implements StorageProvider {
           handle: entry,
         };
       }
+    }
+  }
+
+  private async *_walkFlat(dirHandle: FileSystemDirectoryHandle, prefix: string): AsyncGenerator<FileEntry> {
+    for await (const [name, entry] of dirHandle.entries()) {
+      if (entry.kind === 'directory') continue;
+      if (!isSupportedFileType(name)) continue;
+      const file = await entry.getFile();
+      yield {
+        name,
+        path: prefix + name,
+        size: file.size,
+        type: file.type || inferType(name),
+        handle: entry,
+      };
     }
   }
 

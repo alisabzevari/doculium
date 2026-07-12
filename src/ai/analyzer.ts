@@ -1,6 +1,7 @@
 import type { AnalysisResult, AIProvider, AnalyzeOptions, ChatMessage, ToolDefinition, ChatResult } from './types.ts';
 import { createProvider } from './provider.ts';
 import { getSettings } from '../db/config-store.ts';
+import { stripCodeFence } from '../utils/markdown.ts';
 
 let currentProvider: AIProvider | null = null;
 
@@ -43,7 +44,11 @@ export async function chatWithDocument(
   return provider.chat(chatMessages, tools);
 }
 
-const TEXT_IMPROVE_PROMPT = `You are a document text formatting assistant. Your task is to convert raw extracted text from a PDF into clean, well-structured markdown.
+export async function improveText(rawText: string): Promise<string> {
+  if (!rawText || rawText.length < 20) return rawText;
+  const provider = await getAIProvider();
+  const settings = await getSettings();
+  const prompt = settings.improvePrompt || `You are a document text formatting assistant. Your task is to convert raw extracted text from a PDF into clean, well-structured markdown.
 
 Rules:
 - Convert headings, paragraphs, lists, and tables into proper markdown syntax.
@@ -56,14 +61,11 @@ Rules:
 - Use **bold** where the original has strong emphasis.
 - Ignore headers, footers, page numbers, and repetitive watermarks.`;
 
-export async function improveText(rawText: string): Promise<string> {
-  if (!rawText || rawText.length < 20) return rawText;
-  const provider = await getAIProvider();
   const result = await provider.chat([
-    { role: 'system', content: TEXT_IMPROVE_PROMPT },
+    { role: 'system', content: prompt },
     { role: 'user', content: `Convert this document text to markdown:\n\n${rawText}` },
   ]);
-  return result.content?.trim() || rawText;
+  return stripCodeFence(result.content?.trim() || rawText);
 }
 
 export async function testConnection(): Promise<boolean> {

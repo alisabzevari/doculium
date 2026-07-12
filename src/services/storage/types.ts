@@ -16,7 +16,7 @@ export interface StorageProvider {
   destroy(): Promise<void>;
   isReady(): Promise<boolean>;
 
-  walkDirectory(path: string): AsyncGenerator<FileEntry>;
+  walkDirectory(path: string, recursive?: boolean): AsyncGenerator<FileEntry>;
   getFile(path: string): Promise<File>;
   writeFile(path: string, data: Blob | ArrayBuffer): Promise<string>;
   organizeFile(file: File, year: number, category: string, filename: string): Promise<string>;
