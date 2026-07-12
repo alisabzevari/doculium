@@ -445,20 +445,92 @@ export function isTursoConnected(): boolean {
 export async function pushSettingsNow(): Promise<boolean> {
   if (!client) return false;
   try {
+    const pendingDeletions = await db.pendingDeletions.toArray();
+    const catDeletions = pendingDeletions.filter(pd => pd.tableName === 'categories');
+    for (const pd of catDeletions) {
+      try { await client!.execute({ sql: 'DELETE FROM categories WHERE id = ?', args: [pd.recordId] }); } catch { /* ignore */ }
+    }
+    if (catDeletions.length > 0) {
+      await db.pendingDeletions.bulkDelete(catDeletions.map(d => d.id));
+    }
+
     const settingsRow = await db.appSettings.get('default');
     if (settingsRow) {
-      await client.execute({
-        sql: `INSERT OR REPLACE INTO app_settings (id, analysisPrompt, searchPrompt, chatPrompt, improvePrompt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
-        args: [settingsRow.id, settingsRow.analysisPrompt, settingsRow.searchPrompt, settingsRow.chatPrompt, settingsRow.improvePrompt, settingsRow.updatedAt],
-      });
+      const remoteResult = await client.execute({ sql: 'SELECT updatedAt FROM app_settings WHERE id = ?', args: ['default'] });
+      const remoteUpdatedAt = remoteResult.rows[0]?.updatedAt as string | undefined;
+      if (!remoteUpdatedAt || settingsRow.updatedAt > remoteUpdatedAt) {
+        await client.execute({
+          sql: `INSERT OR REPLACE INTO app_settings (id, analysisPrompt, searchPrompt, chatPrompt, improvePrompt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
+          args: [settingsRow.id, settingsRow.analysisPrompt, settingsRow.searchPrompt, settingsRow.chatPrompt, settingsRow.improvePrompt, settingsRow.updatedAt],
+        });
+      } else if (remoteUpdatedAt > settingsRow.updatedAt) {
+        const remoteRow = await client.execute({ sql: 'SELECT * FROM app_settings WHERE id = ?', args: ['default'] });
+        if (remoteRow.rows[0]) {
+          const r = remoteRow.rows[0] as Record<string, unknown>;
+          const merged: AppSettingsRow = {
+            id: 'default',
+            analysisPrompt: r.analysisPrompt as string || '',
+            searchPrompt: r.searchPrompt as string || '',
+            chatPrompt: r.chatPrompt as string || '',
+            improvePrompt: r.improvePrompt as string || '',
+            updatedAt: r.updatedAt as string || settingsRow.updatedAt,
+          };
+          await db.appSettings.put(merged);
+        }
+      }
+    } else {
+      const remoteRow = await client.execute({ sql: 'SELECT * FROM app_settings WHERE id = ?', args: ['default'] });
+      if (remoteRow.rows[0]) {
+        const r = remoteRow.rows[0] as Record<string, unknown>;
+        await db.appSettings.put({
+          id: 'default',
+          analysisPrompt: r.analysisPrompt as string || '',
+          searchPrompt: r.searchPrompt as string || '',
+          chatPrompt: r.chatPrompt as string || '',
+          improvePrompt: r.improvePrompt as string || '',
+          updatedAt: r.updatedAt as string || new Date().toISOString(),
+        });
+      }
     }
-    const categories = await db.categories.toArray();
-    for (const cat of categories) {
-      await client.execute({
-        sql: `INSERT OR REPLACE INTO categories (id, name, icon, color, isBuiltIn, "order", createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [cat.id, cat.name, cat.icon, cat.color, cat.isBuiltIn ? 1 : 0, cat.order, cat.createdAt, cat.updatedAt],
-      });
+
+    const localCats = await db.categories.toArray();
+    const remoteCatsResult = await client.execute('SELECT id, updatedAt FROM categories');
+    const remoteCatMap = new Map<string, string>();
+    for (const row of remoteCatsResult.rows) {
+      const r = row as Record<string, unknown>;
+      remoteCatMap.set(r.id as string, r.updatedAt as string);
     }
+
+    for (const cat of localCats) {
+      const remoteUpdated = remoteCatMap.get(cat.id);
+      if (!remoteUpdated || cat.updatedAt > remoteUpdated) {
+        await client.execute({
+          sql: `INSERT OR REPLACE INTO categories (id, name, icon, color, isBuiltIn, "order", createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [cat.id, cat.name, cat.icon, cat.color, cat.isBuiltIn ? 1 : 0, cat.order, cat.createdAt, cat.updatedAt],
+        });
+      }
+    }
+
+    const localCatIds = new Set(localCats.map(c => c.id));
+    for (const [remoteId, remoteUpdated] of remoteCatMap) {
+      if (!localCatIds.has(remoteId)) {
+        const remoteRow = await client.execute({ sql: 'SELECT * FROM categories WHERE id = ?', args: [remoteId] });
+        if (remoteRow.rows[0]) {
+          const r = remoteRow.rows[0] as Record<string, unknown>;
+          await db.categories.put({
+            id: r.id as string,
+            name: r.name as string || '',
+            icon: r.icon as string || '📄',
+            color: r.color as string || 'ghost',
+            isBuiltIn: (r.isBuiltIn as number) === 1,
+            order: (r.order as number) || 0,
+            createdAt: r.createdAt as string || new Date().toISOString(),
+            updatedAt: r.updatedAt as string || new Date().toISOString(),
+          });
+        }
+      }
+    }
+
     return true;
   } catch {
     return false;
