@@ -3,7 +3,7 @@ import { customElement, state, query } from 'lit/decorators.js';
 import { getSettings, saveSettings, type AppSettings } from '../db/config-store.ts';
 import { db } from '../db/schema.ts';
 import { resetProvider, testConnection, getAIProvider } from '../ai/analyzer.ts';
-import { initTurso, syncDocuments, getLastError } from '../db/turso-sync.ts';
+import { initTurso, syncDocuments, getLastError, pushSettingsNow, isTursoConnected } from '../db/turso-sync.ts';
 import type { Category } from '../db/schema.ts';
 import type { LocalProvider } from '../ai/local.ts';
 import { v4 as uuid } from 'uuid';
@@ -93,6 +93,9 @@ export class SettingsPage extends LitElement {
     if (!this.settings) return;
     await saveSettings(this.settings);
     resetProvider();
+    if (isTursoConnected()) {
+      await pushSettingsNow();
+    }
     this.toast?.show('Settings saved');
   }
 
@@ -150,11 +153,19 @@ export class SettingsPage extends LitElement {
     await db.categories.add(cat);
     this.categories = [...this.categories, cat];
     this.newCategoryName = '';
+    if (isTursoConnected()) {
+      await pushSettingsNow();
+    }
   }
 
   private async removeCategory(id: string) {
+    const now = new Date().toISOString();
+    await db.pendingDeletions.add({ id: `cat-${id}`, tableName: 'categories', recordId: id, createdAt: now });
     await db.categories.delete(id);
     this.categories = this.categories.filter(c => c.id !== id);
+    if (isTursoConnected()) {
+      await pushSettingsNow();
+    }
   }
 
   private async _selectLocalFolder() {

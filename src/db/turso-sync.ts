@@ -1,5 +1,5 @@
 import { createClient } from '@libsql/client/web';
-import { db, type Document, type ActionItem, type Category, type AnalysisJob, type ChatMessage } from './schema.ts';
+import { db, type Document, type ActionItem, type Category, type AnalysisJob, type ChatMessage, type AppSettingsRow } from './schema.ts';
 import type { Table } from 'dexie';
 
 let client: ReturnType<typeof createClient> | null = null;
@@ -86,6 +86,13 @@ async function ensureTables() {
     CREATE TABLE IF NOT EXISTS chat_messages (
       id TEXT PRIMARY KEY, documentId TEXT, role TEXT,
       content TEXT, createdAt TEXT, updatedAt TEXT
+    )
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id TEXT PRIMARY KEY, analysisPrompt TEXT, searchPrompt TEXT,
+      chatPrompt TEXT, improvePrompt TEXT, updatedAt TEXT
     )
   `);
 
@@ -219,6 +226,12 @@ export async function syncDocuments(
       'Push',
     );
 
+    await pushTable(db.appSettings,
+      `INSERT OR REPLACE INTO app_settings (id, analysisPrompt, searchPrompt, chatPrompt, improvePrompt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
+      (row: AppSettingsRow) => [row.id, row.analysisPrompt, row.searchPrompt, row.chatPrompt, row.improvePrompt, row.updatedAt],
+      'Push',
+    );
+
     // ── RECOVER: re-push local records that were deleted on remote ──
     async function recoverTable<T extends { id: string }>(
       table: Table<T, string>,
@@ -281,6 +294,12 @@ export async function syncDocuments(
       `INSERT OR REPLACE INTO chat_messages (id, documentId, role, content, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
       (msg: ChatMessage) => [msg.id, msg.documentId, msg.role, msg.content, msg.createdAt, msg.updatedAt],
       'chat messages',
+    );
+
+    await recoverTable(db.appSettings, 'app_settings',
+      `INSERT OR REPLACE INTO app_settings (id, analysisPrompt, searchPrompt, chatPrompt, improvePrompt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
+      (row: AppSettingsRow) => [row.id, row.analysisPrompt, row.searchPrompt, row.chatPrompt, row.improvePrompt, row.updatedAt],
+      'app settings',
     );
 
     // ── PULL: remote → local ──
@@ -398,6 +417,18 @@ export async function syncDocuments(
       }), 'chat messages',
     );
 
+    await pullTable(db.appSettings,
+      `SELECT * FROM app_settings WHERE updatedAt > ?`,
+      (row): AppSettingsRow => ({
+        id: row.id as string || 'default',
+        analysisPrompt: row.analysisPrompt as string || '',
+        searchPrompt: row.searchPrompt as string || '',
+        chatPrompt: row.chatPrompt as string || '',
+        improvePrompt: row.improvePrompt as string || '',
+        updatedAt: row.updatedAt as string || syncStartedAt,
+      }), 'app settings',
+    );
+
     setLastSyncAt(syncStartedAt);
   } catch (err: any) {
     lastError = err.message || String(err);
@@ -405,4 +436,31 @@ export async function syncDocuments(
   }
 
   return { pushed, pulled, deleted };
+}
+
+export function isTursoConnected(): boolean {
+  return client !== null;
+}
+
+export async function pushSettingsNow(): Promise<boolean> {
+  if (!client) return false;
+  try {
+    const settingsRow = await db.appSettings.get('default');
+    if (settingsRow) {
+      await client.execute({
+        sql: `INSERT OR REPLACE INTO app_settings (id, analysisPrompt, searchPrompt, chatPrompt, improvePrompt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [settingsRow.id, settingsRow.analysisPrompt, settingsRow.searchPrompt, settingsRow.chatPrompt, settingsRow.improvePrompt, settingsRow.updatedAt],
+      });
+    }
+    const categories = await db.categories.toArray();
+    for (const cat of categories) {
+      await client.execute({
+        sql: `INSERT OR REPLACE INTO categories (id, name, icon, color, isBuiltIn, "order", createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [cat.id, cat.name, cat.icon, cat.color, cat.isBuiltIn ? 1 : 0, cat.order, cat.createdAt, cat.updatedAt],
+      });
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }

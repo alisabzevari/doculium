@@ -80,17 +80,21 @@ function envDefaults(): Partial<AppSettings> {
       apiKey: env.VITE_DOCULIUM_API_KEY || '',
       model: env.VITE_DOCULIUM_MODEL || 'gpt-4o',
     },
-    analysisPrompt: env.VITE_DOCULIUM_ANALYSIS_PROMPT || DEFAULT_ANALYSIS_PROMPT,
-    searchPrompt: env.VITE_DOCULIUM_SEARCH_PROMPT || DEFAULT_SEARCH_PROMPT,
-    chatPrompt: env.VITE_DOCULIUM_CHAT_PROMPT || DEFAULT_CHAT_PROMPT,
-    improvePrompt: env.VITE_DOCULIUM_IMPROVE_PROMPT || DEFAULT_IMPROVE_PROMPT,
     tursoUrl: env.VITE_DOCULIUM_TURSO_URL || '',
     tursoToken: env.VITE_DOCULIUM_TURSO_TOKEN || '',
     theme: env.VITE_DOCULIUM_THEME || 'cupcake',
   };
 }
 
-const DEFAULTS: AppSettings = {
+function localStorageDefaults(): Partial<AppSettings> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return {};
+}
+
+const LOCAL_FALLBACKS: AppSettings = {
   aiProvider: {
     type: 'openai-compatible',
     baseUrl: 'https://api.openai.com',
@@ -108,19 +112,49 @@ const DEFAULTS: AppSettings = {
 };
 
 export async function getSettings(): Promise<AppSettings> {
+  const local = localStorageDefaults();
+  const env = envDefaults();
+
+  let prompts: Partial<Pick<AppSettings, 'analysisPrompt' | 'searchPrompt' | 'chatPrompt' | 'improvePrompt'>> = {};
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      return { ...DEFAULTS, ...JSON.parse(raw) };
+    const row = await db.appSettings.get('default');
+    if (row) {
+      prompts = {
+        analysisPrompt: row.analysisPrompt,
+        searchPrompt: row.searchPrompt,
+        chatPrompt: row.chatPrompt,
+        improvePrompt: row.improvePrompt,
+      };
     }
-  } catch {
-    // ignore parse errors
-  }
-  return { ...DEFAULTS, ...envDefaults() };
+  } catch { /* table may not exist yet on first load */ }
+
+  return {
+    ...LOCAL_FALLBACKS,
+    ...env,
+    ...local,
+    ...prompts,
+  };
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  const now = new Date().toISOString();
+
+  await db.appSettings.put({
+    id: 'default',
+    analysisPrompt: settings.analysisPrompt,
+    searchPrompt: settings.searchPrompt,
+    chatPrompt: settings.chatPrompt,
+    improvePrompt: settings.improvePrompt,
+    updatedAt: now,
+  });
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    aiProvider: settings.aiProvider,
+    tursoUrl: settings.tursoUrl,
+    tursoToken: settings.tursoToken,
+    theme: settings.theme,
+    categories: settings.categories,
+  }));
 }
 
 export async function seedCategories(): Promise<void> {

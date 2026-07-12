@@ -83,6 +83,15 @@ export interface PendingDeletion {
   createdAt: string;
 }
 
+export interface AppSettingsRow {
+  id: string;
+  analysisPrompt: string;
+  searchPrompt: string;
+  chatPrompt: string;
+  improvePrompt: string;
+  updatedAt: string;
+}
+
 export class DoculiumDB extends Dexie {
   documents!: Table<Document, string>;
   actionItems!: Table<ActionItem, string>;
@@ -90,6 +99,7 @@ export class DoculiumDB extends Dexie {
   analysisJobs!: Table<AnalysisJob, string>;
   chatMessages!: Table<ChatMessage, string>;
   pendingDeletions!: Table<PendingDeletion, string>;
+  appSettings!: Table<AppSettingsRow, string>;
 
   constructor() {
     super('doculium');
@@ -107,6 +117,16 @@ export class DoculiumDB extends Dexie {
       await tx.table('categories').toCollection().modify(item => { item.updatedAt = now; });
       await tx.table('analysisJobs').toCollection().modify(item => { item.updatedAt = now; });
       await tx.table('chatMessages').toCollection().modify(item => { item.updatedAt = now; });
+    });
+
+    this.version(5).stores({
+      documents: 'id, fileHash, category, year, urgency, status, createdAt, originalName',
+      actionItems: 'id, documentId, urgency, completed, createdAt',
+      categories: 'id, name, isBuiltIn, order',
+      analysisJobs: 'id, documentId, status, createdAt',
+      chatMessages: 'id, documentId, createdAt',
+      pendingDeletions: 'id, tableName, createdAt',
+      appSettings: 'id, updatedAt',
     });
   }
 }
