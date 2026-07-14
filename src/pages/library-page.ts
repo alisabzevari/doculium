@@ -94,7 +94,11 @@ export class LibraryPage extends LitElement {
       collection = collection.filter(d => d.category === this.selectedCategory);
     }
 
-    collection.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    collection.sort((a, b) => {
+      const dateA = a.dateFrom || (a.year ? `${a.year}-01-01` : a.createdAt);
+      const dateB = b.dateFrom || (b.year ? `${b.year}-01-01` : b.createdAt);
+      return dateB.localeCompare(dateA);
+    });
 
     this.totalResultCount = collection.length;
     const offset = (this.page - 1) * PAGE_SIZE;

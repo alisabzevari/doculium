@@ -179,9 +179,15 @@ export class DocumentDetail extends LitElement {
 
        <div class="bg-base-200 p-4 space-y-3">
         <div class="flex flex-wrap gap-3 text-sm">
-         <div><span class="opacity-50">Category:</span> <strong>${d.category}</strong></div>
-          <div><span class="opacity-50">Year:</span> <strong>${d.year ?? 'Unknown'}</strong></div>
-         ${d.month ? html`<div><span class="opacity-50">Month:</span> <strong>${d.month}</strong></div>` : ''}
+          <div><span class="opacity-50">Category:</span> <strong>${d.category}</strong></div>
+          ${(() => {
+            const fmt = (s: string) => s.slice(0, 10);
+            if (d.dateFrom && d.dateTo) return html`<div><span class="opacity-50">Date:</span> <strong>${fmt(d.dateFrom)} → ${fmt(d.dateTo)}</strong></div>`;
+            if (d.dateFrom) return html`<div><span class="opacity-50">Date:</span> <strong>${fmt(d.dateFrom)}</strong></div>`;
+            if (d.year) return html`<div><span class="opacity-50">Year:</span> <strong>${d.year}</strong></div>`;
+            return '';
+          })()}
+          ${d.month ? html`<div><span class="opacity-50">Month:</span> <strong>${d.month}</strong></div>` : ''}
          ${d.storedPath ? html`<div class="flex min-w-0 gap-1"><span class="opacity-50 shrink-0">Location:</span> <span class="truncate min-w-0 font-bold" title="${d.storedPath}">${d.storedPath}</span></div>` : ''}
         </div>
 
