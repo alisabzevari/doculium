@@ -1,4 +1,5 @@
 import { db, getDefaultCategories } from './schema.ts';
+import { getClient } from './turso-sync.ts';
 
 export interface AIProviderConfig {
   type: 'openai-compatible' | 'local';
@@ -139,14 +140,24 @@ export async function getSettings(): Promise<AppSettings> {
 export async function saveSettings(settings: AppSettings): Promise<void> {
   const now = new Date().toISOString();
 
-  await db.appSettings.put({
+  const appSettingsRow = {
     id: 'default',
     analysisPrompt: settings.analysisPrompt,
     searchPrompt: settings.searchPrompt,
     chatPrompt: settings.chatPrompt,
     improvePrompt: settings.improvePrompt,
     updatedAt: now,
-  });
+  };
+
+  const client = getClient();
+  if (client) {
+    await client.execute({
+      sql: `INSERT OR REPLACE INTO app_settings (id, analysisPrompt, searchPrompt, chatPrompt, improvePrompt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [appSettingsRow.id, appSettingsRow.analysisPrompt, appSettingsRow.searchPrompt, appSettingsRow.chatPrompt, appSettingsRow.improvePrompt, appSettingsRow.updatedAt],
+    });
+  }
+
+  await db.appSettings.put(appSettingsRow);
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     aiProvider: settings.aiProvider,

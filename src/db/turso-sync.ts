@@ -584,6 +584,153 @@ export async function autoPullAll(): Promise<void> {
   } catch { /* auto-pull failed silently */ }
 }
 
+const SYNC_INTERVAL = 30000;
+let syncTimer: ReturnType<typeof setInterval> | null = null;
+
+export async function incrementalPull(): Promise<void> {
+  if (!client) return;
+  try {
+    const lastSyncAt = getLastSyncAt();
+    const syncStartedAt = new Date().toISOString();
+
+    async function pullTable<T extends { id: string; updatedAt: string }>(
+      table: Table<T, string>,
+      sql: string,
+      mapFn: (row: Record<string, unknown>) => T,
+    ) {
+      const result = await client!.execute({ sql, args: [lastSyncAt] });
+      if (result.rows.length === 0) return;
+      const rows = result.rows as unknown as Record<string, unknown>[];
+      const toPut: T[] = [];
+      for (const r of rows) {
+        const id = r.id as string;
+        const remoteUpdated = (r.updatedAt as string) || '';
+        const existing = await table.get(id);
+        if (!existing || remoteUpdated > existing.updatedAt) {
+          toPut.push(mapFn(r));
+        }
+      }
+      if (toPut.length > 0) {
+        await table.bulkPut(toPut);
+      }
+    }
+
+    await pullTable(db.documents,
+      `SELECT * FROM documents WHERE updatedAt > ?`,
+      (row): Document => {
+        let tags: string[] = [];
+        try { tags = JSON.parse(row.tags as string || '[]'); } catch { /* ignore */ }
+        return {
+          id: row.id as string, originalName: row.originalName as string || '',
+          originalPath: row.originalPath as string || '',
+          storedPath: row.storedPath as string || null,
+          fileType: row.fileType as string || '',
+          fileSize: (row.fileSize as number) || 0,
+          fileHash: row.fileHash as string || '',
+          extractedText: (row.extractedText as string) || '',
+          summary: row.summary as string || '',
+          audience: row.audience as string || '',
+          urgency: (row.urgency as Document['urgency']) || 'medium',
+          taxRelevant: (row.taxRelevant as number) === 1,
+          category: row.category as string || '',
+          year: (row.year as number) || null,
+          month: row.month as number | null || null,
+          dateFrom: row.dateFrom as string | null || null,
+          dateTo: row.dateTo as string | null || null,
+          suggestedFilename: row.suggestedFilename as string | null || null,
+          tags, confidence: (row.confidence as number) || 0,
+          status: (row.status as Document['status']) || 'pending',
+          error: row.error as string | null || null,
+          createdAt: row.createdAt as string || syncStartedAt,
+          updatedAt: row.updatedAt as string || syncStartedAt,
+          syncedAt: syncStartedAt,
+        };
+      },
+    );
+
+    await pullTable(db.actionItems,
+      `SELECT * FROM action_items WHERE updatedAt > ?`,
+      (row): ActionItem => ({
+        id: row.id as string, documentId: row.documentId as string || '',
+        text: row.text as string || '',
+        urgency: (row.urgency as ActionItem['urgency']) || 'medium',
+        completed: (row.completed as number) === 1,
+        completedAt: row.completedAt as string | null || null,
+        createdAt: row.createdAt as string || syncStartedAt,
+        updatedAt: row.updatedAt as string || syncStartedAt,
+        dueDate: row.dueDate as string | null || null,
+      }),
+    );
+
+    await pullTable(db.categories,
+      `SELECT * FROM categories WHERE updatedAt > ?`,
+      (row): Category => ({
+        id: row.id as string, name: row.name as string || '',
+        icon: row.icon as string || '📄',
+        color: row.color as string || 'ghost',
+        isBuiltIn: (row.isBuiltIn as number) === 1,
+        order: (row.order as number) || 0,
+        createdAt: row.createdAt as string || syncStartedAt,
+        updatedAt: row.updatedAt as string || syncStartedAt,
+      }),
+    );
+
+    await pullTable(db.analysisJobs,
+      `SELECT * FROM analysis_jobs WHERE updatedAt > ?`,
+      (row): AnalysisJob => ({
+        id: row.id as string, documentId: row.documentId as string || '',
+        status: (row.status as AnalysisJob['status']) || 'queued',
+        provider: row.provider as string || '',
+        model: row.model as string || '',
+        promptTokens: (row.promptTokens as number) || 0,
+        completionTokens: (row.completionTokens as number) || 0,
+        error: row.error as string | null || null,
+        startedAt: row.startedAt as string | null || null,
+        completedAt: row.completedAt as string | null || null,
+        createdAt: row.createdAt as string || syncStartedAt,
+        updatedAt: row.updatedAt as string || syncStartedAt,
+      }),
+    );
+
+    await pullTable(db.chatMessages,
+      `SELECT * FROM chat_messages WHERE updatedAt > ?`,
+      (row): ChatMessage => ({
+        id: row.id as string, documentId: row.documentId as string || '',
+        role: (row.role as ChatMessage['role']) || 'user',
+        content: row.content as string || '',
+        createdAt: row.createdAt as string || syncStartedAt,
+        updatedAt: row.updatedAt as string || syncStartedAt,
+      }),
+    );
+
+    await pullTable(db.appSettings,
+      `SELECT * FROM app_settings WHERE updatedAt > ?`,
+      (row): AppSettingsRow => ({
+        id: row.id as string || 'default',
+        analysisPrompt: row.analysisPrompt as string || '',
+        searchPrompt: row.searchPrompt as string || '',
+        chatPrompt: row.chatPrompt as string || '',
+        improvePrompt: row.improvePrompt as string || '',
+        updatedAt: row.updatedAt as string || syncStartedAt,
+      }),
+    );
+
+    setLastSyncAt(syncStartedAt);
+  } catch { /* incremental pull failed silently */ }
+}
+
+export function startPeriodicSync(): void {
+  stopPeriodicSync();
+  syncTimer = setInterval(() => { incrementalPull(); }, SYNC_INTERVAL);
+}
+
+export function stopPeriodicSync(): void {
+  if (syncTimer !== null) {
+    clearInterval(syncTimer);
+    syncTimer = null;
+  }
+}
+
 export async function pushSettingsNow(): Promise<boolean> {
   if (!client) return false;
   try {

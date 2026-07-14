@@ -11,12 +11,15 @@ export class DocumentCard extends LitElement {
   @property({ attribute: false }) document!: Document;
   @property({ type: Boolean }) selected = false;
   @property({ type: Boolean }) selectable = false;
-  @state() private categoryIcon = '';
   @state() private analyzing = false;
 
   private static _iconCache: Map<string, string> | null = null;
 
   createRenderRoot() { return this; }
+
+  private get _categoryIcon(): string {
+    return DocumentCard._iconCache?.get(this.document?.category || '') || '';
+  }
 
   async analyze(e: Event) {
     e.stopPropagation();
@@ -61,7 +64,6 @@ export class DocumentCard extends LitElement {
       const cats = await db.categories.toArray();
       DocumentCard._iconCache = new Map(cats.map(c => [c.name, c.icon]));
     }
-    this.categoryIcon = DocumentCard._iconCache.get(this.document.category) || '';
   }
 
   private _urgencyBorder(d: Document) {
@@ -121,8 +123,14 @@ export class DocumentCard extends LitElement {
           `}
 
           <div class="flex items-center gap-1.5 flex-wrap">
-            ${d.category ? html`<span class="badge badge-xs badge-soft">${this.categoryIcon || '📄'} ${d.category}</span>` : ''}
-            ${d.year ? html`<span class="text-xs opacity-40">${d.year}</span>` : ''}
+            ${d.category ? html`<span class="badge badge-xs badge-soft">${this._categoryIcon || '📄'} ${d.category}</span>` : ''}
+            ${(() => {
+              const fmt = (s: string) => s.slice(0, 10);
+              if (d.dateFrom && d.dateTo) return html`<span class="text-xs opacity-40">${fmt(d.dateFrom)} → ${fmt(d.dateTo)}</span>`;
+              if (d.dateFrom) return html`<span class="text-xs opacity-40">${fmt(d.dateFrom)}</span>`;
+              if (d.year) return html`<span class="text-xs opacity-40">${d.year}</span>`;
+              return '';
+            })()}
             ${ext === 'pdf' ? html`<icon-svg name="fileText" size="12" class="opacity-30 shrink-0"></icon-svg>`
             : ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext) ? html`<icon-svg name="image" size="12" class="opacity-30 shrink-0"></icon-svg>`
             : ''}

@@ -3,7 +3,7 @@ import { customElement, state, query } from 'lit/decorators.js';
 import { getSettings, saveSettings, type AppSettings } from '../db/config-store.ts';
 import { db } from '../db/schema.ts';
 import { resetProvider, testConnection, getAIProvider } from '../ai/analyzer.ts';
-import { initTurso, getLastError, pushSettingsNow, isTursoConnected, autoPullAll } from '../db/turso-sync.ts';
+import { initTurso, getLastError, pushSettingsNow, isTursoConnected, autoPullAll, startPeriodicSync } from '../db/turso-sync.ts';
 import type { Category } from '../db/schema.ts';
 import type { LocalProvider } from '../ai/local.ts';
 import { v4 as uuid } from 'uuid';
@@ -98,6 +98,7 @@ export class SettingsPage extends LitElement {
     const ok = await initTurso(this.settings.tursoUrl, this.settings.tursoToken);
     if (ok) {
       await autoPullAll();
+      startPeriodicSync();
       this.syncStatus = '✅ Cloud connected';
     } else if (wasConnected) {
       this.syncStatus = '❌ Cloud disconnected';
