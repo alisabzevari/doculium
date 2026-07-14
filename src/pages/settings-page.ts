@@ -3,7 +3,7 @@ import { customElement, state, query } from 'lit/decorators.js';
 import { getSettings, saveSettings, type AppSettings } from '../db/config-store.ts';
 import { db } from '../db/schema.ts';
 import { resetProvider, testConnection, getAIProvider } from '../ai/analyzer.ts';
-import { initTurso, syncDocuments, getLastError, pushSettingsNow, isTursoConnected } from '../db/turso-sync.ts';
+import { initTurso, getLastError, pushSettingsNow, isTursoConnected, autoPullAll } from '../db/turso-sync.ts';
 import type { Category } from '../db/schema.ts';
 import type { LocalProvider } from '../ai/local.ts';
 import { v4 as uuid } from 'uuid';
@@ -45,6 +45,7 @@ export class SettingsPage extends LitElement {
     this.settings = await getSettings();
     document.documentElement.setAttribute('data-theme', this.settings.theme);
     this.categories = await db.categories.toArray();
+    this.syncStatus = isTursoConnected() ? '✅ Cloud connected' : '';
 
     this.storageConfig = getStorageConfig();
     this.dropboxAppKeyInput = this.storageConfig.dropboxAppKey || '';
@@ -93,8 +94,15 @@ export class SettingsPage extends LitElement {
     if (!this.settings) return;
     await saveSettings(this.settings);
     resetProvider();
-    if (isTursoConnected()) {
-      await pushSettingsNow();
+    const wasConnected = isTursoConnected();
+    const ok = await initTurso(this.settings.tursoUrl, this.settings.tursoToken);
+    if (ok) {
+      await autoPullAll();
+      this.syncStatus = '✅ Cloud connected';
+    } else if (wasConnected) {
+      this.syncStatus = '❌ Cloud disconnected';
+    } else {
+      this.syncStatus = '';
     }
     this.toast?.show('Settings saved');
   }
@@ -119,21 +127,18 @@ export class SettingsPage extends LitElement {
     this.syncStatus = 'Syncing...';
     this.syncProgress = null;
     await this.save();
-    const ok = await initTurso(this.settings.tursoUrl, this.settings.tursoToken);
-    if (!ok) {
-      this.syncStatus = `❌ ${getLastError()}`;
-      return;
+    if (!isTursoConnected()) {
+      const ok = await initTurso(this.settings.tursoUrl, this.settings.tursoToken);
+      if (!ok) {
+        this.syncStatus = `❌ ${getLastError()}`;
+        return;
+      }
     }
-    const result = await syncDocuments((p) => {
-      this.syncProgress = { ...p };
-      this.requestUpdate();
-    });
-    this.syncProgress = null;
-    const err = getLastError();
-    if (err) {
-      this.syncStatus = `❌ ${err}`;
-    } else {
-      this.syncStatus = `✅ Synced! Pushed: ${result.pushed}, Pulled: ${result.pulled}, Deleted: ${result.deleted}`;
+    try {
+      await autoPullAll();
+      this.syncStatus = '✅ Synced from cloud';
+    } catch {
+      this.syncStatus = `❌ ${getLastError()}`;
     }
   }
 
@@ -641,6 +646,14 @@ export class SettingsPage extends LitElement {
 
             <hr class="border-base-300">
 
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-sm font-semibold">Cloud Sync</span>
+              ${isTursoConnected() ? html`
+                <span class="badge badge-success badge-sm">Online</span>
+              ` : html`
+                <span class="badge badge-ghost badge-sm">Offline</span>
+              `}
+            </div>
             <div>
               <label class="label">Turso Database URL</label>
               <input class="input w-full" type="url" .value=${this.settings.tursoUrl}
@@ -653,9 +666,8 @@ export class SettingsPage extends LitElement {
                 @change=${(e: Event) => { const v = (e.target as HTMLInputElement).value; this.settings = this.settings ? { ...this.settings, tursoToken: v } : null; }} />
             </div>
             <div class="flex gap-2 flex-wrap">
-              <button class="tooltip btn btn-primary" data-tip="Save settings" @click=${this.save}>Save</button>
-              <button class="tooltip btn btn-ghost" data-tip="Test Turso connection" @click=${this.testTurso}>Test Connection</button>
-              <button class="btn btn-ghost" @click=${this.sync}>Sync Now</button>
+              <button class="tooltip btn btn-primary" data-tip="Save and reconnect" @click=${this.save}>Save</button>
+              <button class="tooltip btn btn-ghost" data-tip="Force re-sync from cloud" @click=${this.sync}>Sync Now</button>
             </div>
             ${this.syncProgress ? html`
               <div class="space-y-2">

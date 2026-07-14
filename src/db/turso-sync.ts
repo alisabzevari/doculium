@@ -28,12 +28,14 @@ export function getLastError(): string {
 export async function initTurso(url: string, token: string): Promise<boolean> {
   lastError = '';
   if (!url || !token) {
+    client = null;
     lastError = 'URL and token are required';
     return false;
   }
   try {
     client = createClient({ url, authToken: token });
     await client.execute('SELECT 1');
+    await ensureTables();
     return true;
   } catch (err: any) {
     client = null;
@@ -438,8 +440,148 @@ export async function syncDocuments(
   return { pushed, pulled, deleted };
 }
 
+export function getClient() {
+  return client;
+}
+
 export function isTursoConnected(): boolean {
   return client !== null;
+}
+
+export async function autoPullAll(): Promise<void> {
+  if (!client) return;
+  try {
+    await ensureTables();
+
+    async function pullTable<T extends { id: string; updatedAt: string }>(
+      table: Table<T, string>,
+      sql: string,
+      mapFn: (row: Record<string, unknown>) => T,
+    ) {
+      const result = await client!.execute(sql);
+      const rows = result.rows as unknown as Record<string, unknown>[];
+      if (rows.length === 0) return;
+      const localIds = new Set(await table.toCollection().primaryKeys());
+      const remoteIds = new Set<string>();
+      const toPut: T[] = [];
+      for (const r of rows) {
+        const id = r.id as string;
+        remoteIds.add(id);
+        const remoteUpdated = (r.updatedAt as string) || '';
+        const existing = await table.get(id);
+        if (!existing || remoteUpdated >= existing.updatedAt) {
+          toPut.push(mapFn(r));
+        }
+      }
+      if (toPut.length > 0) {
+        await table.bulkPut(toPut);
+      }
+      const deletedLocally = [...localIds].filter(id => !remoteIds.has(id));
+      for (const id of deletedLocally) {
+        try { await table.delete(id); } catch { /* ignore */ }
+      }
+    }
+
+    await pullTable(db.documents,
+      `SELECT * FROM documents`,
+      (row): Document => {
+        let tags: string[] = [];
+        try { tags = JSON.parse(row.tags as string || '[]'); } catch { /* ignore */ }
+        return {
+          id: row.id as string, originalName: row.originalName as string || '',
+          originalPath: row.originalPath as string || '',
+          storedPath: row.storedPath as string || null,
+          fileType: row.fileType as string || '',
+          fileSize: (row.fileSize as number) || 0,
+          fileHash: row.fileHash as string || '',
+          extractedText: (row.extractedText as string) || '',
+          summary: row.summary as string || '',
+          audience: row.audience as string || '',
+          urgency: (row.urgency as Document['urgency']) || 'medium',
+          taxRelevant: (row.taxRelevant as number) === 1,
+          category: row.category as string || '',
+          year: (row.year as number) || null,
+          month: row.month as number | null || null,
+          dateFrom: row.dateFrom as string | null || null,
+          dateTo: row.dateTo as string | null || null,
+          suggestedFilename: row.suggestedFilename as string | null || null,
+          tags, confidence: (row.confidence as number) || 0,
+          status: (row.status as Document['status']) || 'pending',
+          error: row.error as string | null || null,
+          createdAt: row.createdAt as string || new Date().toISOString(),
+          updatedAt: row.updatedAt as string || new Date().toISOString(),
+          syncedAt: new Date().toISOString(),
+        };
+      },
+    );
+
+    await pullTable(db.actionItems,
+      `SELECT * FROM action_items`,
+      (row): ActionItem => ({
+        id: row.id as string, documentId: row.documentId as string || '',
+        text: row.text as string || '',
+        urgency: (row.urgency as ActionItem['urgency']) || 'medium',
+        completed: (row.completed as number) === 1,
+        completedAt: row.completedAt as string | null || null,
+        createdAt: row.createdAt as string || new Date().toISOString(),
+        updatedAt: row.updatedAt as string || new Date().toISOString(),
+        dueDate: row.dueDate as string | null || null,
+      }),
+    );
+
+    await pullTable(db.categories,
+      `SELECT * FROM categories`,
+      (row): Category => ({
+        id: row.id as string, name: row.name as string || '',
+        icon: row.icon as string || '📄',
+        color: row.color as string || 'ghost',
+        isBuiltIn: (row.isBuiltIn as number) === 1,
+        order: (row.order as number) || 0,
+        createdAt: row.createdAt as string || new Date().toISOString(),
+        updatedAt: row.updatedAt as string || new Date().toISOString(),
+      }),
+    );
+
+    await pullTable(db.analysisJobs,
+      `SELECT * FROM analysis_jobs`,
+      (row): AnalysisJob => ({
+        id: row.id as string, documentId: row.documentId as string || '',
+        status: (row.status as AnalysisJob['status']) || 'queued',
+        provider: row.provider as string || '',
+        model: row.model as string || '',
+        promptTokens: (row.promptTokens as number) || 0,
+        completionTokens: (row.completionTokens as number) || 0,
+        error: row.error as string | null || null,
+        startedAt: row.startedAt as string | null || null,
+        completedAt: row.completedAt as string | null || null,
+        createdAt: row.createdAt as string || new Date().toISOString(),
+        updatedAt: row.updatedAt as string || new Date().toISOString(),
+      }),
+    );
+
+    await pullTable(db.chatMessages,
+      `SELECT * FROM chat_messages`,
+      (row): ChatMessage => ({
+        id: row.id as string, documentId: row.documentId as string || '',
+        role: (row.role as ChatMessage['role']) || 'user',
+        content: row.content as string || '',
+        createdAt: row.createdAt as string || new Date().toISOString(),
+        updatedAt: row.updatedAt as string || new Date().toISOString(),
+      }),
+    );
+
+    await pullTable(db.appSettings,
+      `SELECT * FROM app_settings`,
+      (row): AppSettingsRow => ({
+        id: row.id as string || 'default',
+        analysisPrompt: row.analysisPrompt as string || '',
+        searchPrompt: row.searchPrompt as string || '',
+        chatPrompt: row.chatPrompt as string || '',
+        improvePrompt: row.improvePrompt as string || '',
+        updatedAt: row.updatedAt as string || new Date().toISOString(),
+      }),
+    );
+  } catch { /* auto-pull failed silently */ }
 }
 
 export async function pushSettingsNow(): Promise<boolean> {

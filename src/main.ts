@@ -15,6 +15,7 @@ import './components/document-chat.ts';
 import './components/icon-svg.ts';
 import { decodeShareConfig } from './utils/share-config.ts';
 import { saveSettings, getSettings } from './db/config-store.ts';
+import { initTurso, autoPullAll } from './db/turso-sync.ts';
 
 async function handleSharedConfig() {
   const params = new URLSearchParams(window.location.search);
@@ -42,7 +43,18 @@ async function handleSharedConfig() {
   window.history.replaceState({}, '', url.toString());
 }
 
+async function initCloud() {
+  const settings = await getSettings();
+  if (settings.tursoUrl && settings.tursoToken) {
+    const ok = await initTurso(settings.tursoUrl, settings.tursoToken);
+    if (ok) {
+      await autoPullAll();
+    }
+  }
+}
+
 handleSharedConfig();
+initCloud();
 
 const redirect = sessionStorage.getItem('redirect');
 if (redirect) {
